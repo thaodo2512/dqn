@@ -5,9 +5,19 @@ FROM nvcr.io/nvidia/l4t-ml:r35.2.1-py3
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git build-essential libffi-dev libssl-dev libstdc++6 \
-    libta-lib0 libta-lib0-dev \
     python3-dev python3-pip python3-venv python3-setuptools \
+    wget ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Build and install TA-Lib from source (required by freqtrade extras)
+RUN wget -q http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz && \
+    tar -xzf ta-lib-0.4.0-src.tar.gz && \
+    cd ta-lib && \
+    ./configure --prefix=/usr && \
+    make && \
+    make install && \
+    cd .. && \
+    rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
 
 # Ensure pip is recent
 RUN python3 -m pip install --upgrade pip wheel

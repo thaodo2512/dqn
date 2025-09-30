@@ -17,7 +17,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.2.3] - 2024-07-19
 ### Fixed
-- Updated Jetson Docker image to install `freqtrade[all]==2023.8` (Python 3.8 compatible) and added TA-Lib system libraries.
+- Updated Jetson Docker image to install `freqtrade[all]==2023.8` (Python 3.8 compatible) and compile TA-Lib from source during the build.
 
 ## [0.1.2] - 2024-07-19
 ### Added
