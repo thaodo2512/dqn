@@ -71,8 +71,8 @@ docker run --rm -it --runtime nvidia jetson/jp6.2.1-ml:latest bash -lc "\
   apt-get update && \
   apt-get install -y nvidia-jetpack python3-pip python3-dev && \
   python3 -m pip install --upgrade pip wheel && \
-  pip install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v6.2.1 \
-    torch==2.3.0+nv24.04 torchvision==0.18.0+nv24.04\
+  pip install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v62 \
+    torch torchvision\
 "
 ```
 Adjust PyTorch versions per NVIDIA's release notes. After this step the tag

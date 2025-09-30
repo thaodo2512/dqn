@@ -25,6 +25,13 @@ All notable changes to this project will be documented in this file.
   when available on Jetson.
 - Updated docs to include GPU verification commands and clarifications.
 
+## [0.2.8] - 2025-09-30
+### Fixed
+- Correct NVIDIA PyTorch index URL for JetPack 6.2: use
+  `--extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v62` and
+  avoid over-pinning `+nv` suffixes to improve compatibility with available wheels.
+- Updated docs to match the correct JetPack index path.
+
 ## [0.2.5] - 2025-09-30
 ### Changed
 - Adopted Option A as default: training and trade compose services now run a
