@@ -1,0 +1,29 @@
+version: "3.8"
+services:
+  freqai:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.jetson
+    container_name: freqai_dqn_jetson
+    restart: unless-stopped
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../user_data:/freqtrade/user_data
+      - ../tools:/freqtrade/tools
+    working_dir: /freqtrade
+    command: >
+      bash -lc "
+      freqtrade trade
+        --config user_data/config.json
+        --strategy MyRLStrategy
+        --dry-run
+      "

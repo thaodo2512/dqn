@@ -1,0 +1,77 @@
+{
+  "max_open_trades": 5,
+  "stake_currency": "USDT",
+  "stake_amount": "unlimited",
+  "dry_run": true,
+  "timeframe": "5m",
+  "trading_mode": "futures",
+  "position_mode": "oneway",
+  "exchange": {
+    "name": "binance",
+    "key": "YOUR_KEY",
+    "secret": "YOUR_SECRET",
+    "ccxt_config": {
+      "enableRateLimit": true,
+      "options": { "defaultType": "future" }
+    },
+    "ccxt_async_config": {
+      "enableRateLimit": true,
+      "options": { "defaultType": "future" }
+    },
+    "pair_whitelist": [
+      "BTC/USDT:USDT",
+      "ETH/USDT:USDT"
+    ],
+    "pairlist_update_interval": 1800
+  },
+  "pairlists": [
+    { "method": "StaticPairList" }
+  ],
+  "edge": { "enabled": false },
+  "protections": [],
+  "telegram": { "enabled": false },
+  "api_server": { "enabled": true, "listen_ip_address": "0.0.0.0", "listen_port": 8080 },
+  "bot_name": "freqai_dqn_5m",
+  "strategy": "MyRLStrategy",
+  "forcebuy_enable": false,
+  "freqai": {
+    "enabled": true,
+    "save_backtest_models": true,
+    "restore_best_model": true,
+    "use_tensorboard": true,
+    "log_level": "INFO",
+    "lookback_period_candles": 96,
+    "train_period_days": 30,
+    "train_on_downloaded_data_only": true,
+    "rl_config": {
+      "enabled": true,
+      "model_type": "DQN",
+      "policy": "MlpPolicy",
+      "env_class": "MyFiveActionEnv",
+      "action_mapping": [0, 1, 2, 3, 4],
+      "train_cycles": 25,
+      "total_timesteps": 200000,
+      "optimize_hyperparams": false,
+      "hyperparams": {
+        "learning_rate": 0.0001,
+        "buffer_size": 100000,
+        "learning_starts": 2000,
+        "batch_size": 256,
+        "tau": 1.0,
+        "gamma": 0.99,
+        "train_freq": 4,
+        "target_update_interval": 2000,
+        "gradient_steps": 1,
+        "exploration_fraction": 0.2,
+        "exploration_final_eps": 0.02,
+        "verbose": 0,
+        "device": "auto"
+      }
+    },
+    "feature_parameters": {
+      "include_ohlcv": true,
+      "include_derived": true,
+      "normalize_zscore_window": 96
+    }
+  }
+}
