@@ -1,6 +1,6 @@
 # Jetson Orin Nano (ARM64) base with PyTorch and SB3 support.
-# Requires NVIDIA Container Toolkit on the device.
-FROM nvcr.io/nvidia/l4t-ml:r35.3.1-py3
+# Requires NVIDIA Container Toolkit on the device and access to NVIDIA NGC.
+FROM nvcr.io/nvidia/l4t-ml:r35.2.1-py3
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
