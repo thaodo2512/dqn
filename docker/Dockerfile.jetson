@@ -48,7 +48,8 @@ RUN apt-get update && \
 # Install CUDA-enabled PyTorch for JetPack 6.2 (L4T 36.x)
 # Use NVIDIA's JetPack Simple Index. Avoid over-pinning the nv suffix to keep compatibility.
 RUN pip install --no-cache-dir \
-      --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v62 \
+      --index-url https://developer.download.nvidia.com/compute/redist/jp/v62 \
+      --extra-index-url https://pypi.org/simple \
       torch torchvision
 
 # Create app dir

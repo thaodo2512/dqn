@@ -71,7 +71,8 @@ docker run --rm -it --runtime nvidia jetson/jp6.2.1-ml:latest bash -lc "\
   apt-get update && \
   apt-get install -y nvidia-jetpack python3-pip python3-dev && \
   python3 -m pip install --upgrade pip wheel && \
-  pip install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v62 \
+  pip install --index-url https://developer.download.nvidia.com/compute/redist/jp/v62 \
+    --extra-index-url https://pypi.org/simple \
     torch torchvision\
 "
 ```
