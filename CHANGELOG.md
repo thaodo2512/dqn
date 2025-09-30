@@ -8,6 +8,10 @@ All notable changes to this project will be documented in this file.
   guarantee FreqAI multi-timeframe warmup coverage with data that starts at
   `2024-01-01`, preventing `all training data dropped due to NaNs`.
 - Updated documentation to reflect the new default timerange.
+### Changed
+- Made `tools/download_data.sh` compatible with older Freqtrade CLIs by avoiding
+  unsupported flags (`-t`, `--show-timeranges`) and autodetecting `--timeframes`
+  support when listing downloaded data.
 
 ## [0.2.5] - 2025-09-30
 ### Changed
