@@ -74,9 +74,13 @@ class MyFiveActionEnv(Base5ActionRLEnv):
         step_return = position_multiplier * raw_return
 
         row_idx = min(current_tick, len(self.signal_features) - 1)
-        vol_feature = float(self.signal_features.iloc[row_idx].get("%-volatility_14", 0.0))
+        row = self.signal_features.iloc[row_idx]
+        vol_feature = float(row.get("%-volatility_14", 0.0))
         denom = abs(vol_feature) + FLOAT_EPS
         risk_adjusted_return = step_return / denom if step_return else 0.0
+        # Additional volatility damping to reduce choppy-period over-rewarding
+        vol_damp = 1.0 / (1.0 + max(vol_feature, 0.0))
+        risk_adjusted_return *= vol_damp
         risk_adjusted_return = float(np.clip(risk_adjusted_return, -5.0, 5.0))
 
         self._equity = float(max(FLOAT_EPS, self._equity * (1.0 + step_return)))
@@ -120,9 +124,35 @@ class MyFiveActionEnv(Base5ActionRLEnv):
         elif action in (Actions.Long_exit.value, Actions.Short_exit.value):
             self._last_direction_tick = current_tick
 
-        reward = risk_adjusted_return - fee_penalty - turnover_penalty - drawdown_penalty - churn_penalty
+        # Sentiment bonus from OI / taker flow alignment
+        taker_ratio = float(row.get("%-taker_buy_ratio", 0.5))  # [0,1], 0.5 neutral
+        oi_change = float(row.get("%-oi_pct_change", 0.0))
+        sentiment_bonus = 0.0
+        if self._position == Positions.Long:
+            pos_bonus = 0.5 * max(taker_ratio - 0.5, 0.0) + 0.3 * max(oi_change, 0.0)
+            sentiment_bonus = float(np.clip(pos_bonus, 0.0, 1.0))
+        elif self._position == Positions.Short:
+            pos_bonus = 0.5 * max(0.5 - taker_ratio, 0.0) + 0.3 * max(-oi_change, 0.0)
+            sentiment_bonus = float(np.clip(pos_bonus, 0.0, 1.0))
+
+        reward = (
+            risk_adjusted_return
+            - fee_penalty
+            - turnover_penalty
+            - drawdown_penalty
+            - churn_penalty
+            + sentiment_bonus
+        )
+
+        # Safeguards: penalize excessive trade duration and drawdown breaches
+        max_trade_duration = int(self.rl_config.get("max_trade_duration_candles", 0) or 0)
+        if max_trade_duration > 0 and self.get_trade_duration() > max_trade_duration:
+            reward -= 1.0
+        if drawdown > float(self.max_drawdown):
+            reward -= 2.0
+
         self._prev_action = action
-        return float(reward)
+        return float(np.clip(reward, -5.0, 5.0))
 
 
 class MyRLStrategy(FreqaiStrategy):
