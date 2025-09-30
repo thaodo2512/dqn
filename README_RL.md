@@ -54,7 +54,7 @@ For single-pair manual inference, set `"pair_whitelist": ["BTC/USDT:USDT"]` in t
 cd docker
 docker compose -f docker-compose.jetson.yml up --build -d
 ```
-Requires the NVIDIA Container Toolkit; the image auto-detects GPU vs CPU PyTorch. Jetson images ship Python 3.8, so the Dockerfile pins `freqtrade[all]==2023.8` — the newest release compatible with that runtime. TA-Lib is compiled from source inside the container to satisfy technical indicator dependencies.
+Requires the NVIDIA Container Toolkit; the image auto-detects GPU vs CPU PyTorch. Jetson images ship Python 3.8, so the Dockerfile pins `freqtrade[all]==2023.8` — the newest release compatible with that runtime, compiles TA-Lib from source, and installs `pandas-ta` from the upstream Git repo (`0.3.14b`) since PyPI wheels now target Python ≥3.12.
 
 ## Action Mapping & Reward
 - `0`: hold
