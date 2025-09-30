@@ -70,6 +70,12 @@ docker compose -f docker-compose.jetson.yml up --build -d
 ```
 Requires the NVIDIA Container Toolkit; the image auto-detects GPU vs CPU PyTorch. Jetson images ship Python 3.8, so the Dockerfile pins `freqtrade[all]==2023.8` — the newest release compatible with that runtime, compiles TA-Lib from source, and installs `pandas-ta` `0.3.14b` from the GitHub source archive because PyPI wheels now target Python ≥3.12.
 
+GPU usage
+- The Jetson image installs JetPack runtime and CUDA-enabled PyTorch; compose requests GPU with `gpus: all`.
+- Stable-Baselines3 is configured to `device: cuda` in `user_data/config.json`.
+- Verify inside container:
+  `docker compose -f docker/docker-compose.train.jetson.yml run --rm freqai-train python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"`
+
 ## Action Mapping & Reward
 - `0`: hold
 - `1`: enter long → `enter_long = 1`

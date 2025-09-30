@@ -39,6 +39,18 @@ RUN apt-get update && \
     pip install --no-cache-dir "freqtrade[all]==2025.6" "stable-baselines3[extra]" "ccxt" && \
     pip install --no-cache-dir scipy==1.13.1
 
+# Jetson GPU enablement: install JetPack runtime and NVIDIA PyTorch wheels
+# Requires NVIDIA apt sources present in the base image (see docs/build script)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends nvidia-jetpack && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install CUDA-enabled PyTorch for JetPack 6.2.1 (L4T 36.3)
+# Refer to NVIDIA release notes to update versions when JetPack changes
+RUN pip install --no-cache-dir \
+      --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v6.2.1 \
+      'torch==2.3.0+nv24.04' 'torchvision==0.18.0+nv24.04'
+
 # Create app dir
 WORKDIR /freqtrade
 RUN freqtrade create-userdir --userdir /freqtrade/user_data || true

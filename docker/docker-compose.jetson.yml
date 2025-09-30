@@ -7,6 +7,7 @@ services:
         BASE_IMAGE: jetson/jp6.2.1-ml:latest
     container_name: freqai_dqn_jetson
     runtime: nvidia
+    gpus: all
     restart: unless-stopped
     environment:
       - NVIDIA_VISIBLE_DEVICES=all

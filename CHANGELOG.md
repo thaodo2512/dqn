@@ -13,6 +13,18 @@ All notable changes to this project will be documented in this file.
   avoid timeframe filters for `list-data` and prefer `--show-timerange` (singular)
   when available; otherwise fall back to a plain listing.
 
+## [0.2.7] - 2025-09-30
+### Added
+- Jetson GPU support baked into the Docker image: install `nvidia-jetpack` and NVIDIA
+  CUDA-enabled PyTorch wheels for JetPack 6.2.1 (`torch==2.3.0+nv24.04`,
+  `torchvision==0.18.0+nv24.04`).
+### Changed
+- Compose services now explicitly request GPU with `gpus: all` in addition to the
+  NVIDIA runtime and device reservations.
+- Set Stable-Baselines3 `device: cuda` in `user_data/config.json` so training uses GPU
+  when available on Jetson.
+- Updated docs to include GPU verification commands and clarifications.
+
 ## [0.2.5] - 2025-09-30
 ### Changed
 - Adopted Option A as default: training and trade compose services now run a

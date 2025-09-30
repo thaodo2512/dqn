@@ -6,6 +6,7 @@ services:
       args:
         BASE_IMAGE: jetson/jp6.2.1-ml:latest
     runtime: nvidia
+    gpus: all
     container_name: freqai_dqn_train_jetson
     environment:
       NVIDIA_VISIBLE_DEVICES: all

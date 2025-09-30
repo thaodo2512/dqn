@@ -120,7 +120,7 @@
         "exploration_fraction": 0.2,
         "exploration_final_eps": 0.02,
         "verbose": 0,
-        "device": "auto"
+        "device": "cuda"
       },
       "model_reward_parameters": {
         "rr": 1,

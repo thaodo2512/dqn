@@ -23,6 +23,18 @@ DOWNLOAD_START=20230101 DOWNLOAD_TIMEFRAMES="5m 15m 1h 4h" \
   docker compose -f docker/docker-compose.train.jetson.yml run --rm freqai-train
 ```
 
+## GPU on Jetson
+The image now installs JetPack runtime libraries and NVIDIA's CUDA-enabled PyTorch
+for JetPack 6.2.1. Compose requests the GPU (`gpus: all`) and SB3 is configured to use
+`device: cuda` by default. Verify inside the container:
+```bash
+docker compose -f docker/docker-compose.train.jetson.yml run --rm freqai-train \
+  python -c "import torch; print(torch.__version__, torch.cuda.is_available(), torch.version.cuda)"
+```
+If this prints `True` for CUDA availability, training runs on GPU. If not, ensure your
+base image was built with NVIDIA apt sources (see docs) and your host has the NVIDIA
+Container Toolkit configured.
+
 Debugging tips
 - The training compose runs with increased verbosity (`-vv`) and writes a logfile to
   `user_data/logs/train-debug.log`. You can tail it while the job runs:
