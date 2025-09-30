@@ -11,6 +11,7 @@ services:
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - DOWNLOAD_START=${DOWNLOAD_START:-20231001}
     deploy:
       resources:
         reservations:
@@ -25,4 +26,6 @@ services:
     command:
       - bash
       - -lc
-      - freqtrade trade --config user_data/config.json --strategy MyRLStrategy --dry-run
+      - |
+        bash tools/download_data.sh && \
+        freqtrade trade --config user_data/config.json --strategy MyRLStrategy --dry-run

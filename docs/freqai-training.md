@@ -6,9 +6,21 @@ JetPack 6.2.1 image and mounts the project `user_data/` and `tools/` folders, so
 artifacts (models, logs, plots) are written back to the host.
 
 ## Usage
-Build and run the training container (defaults to `--timerange 20240101-20250930`):
+Build and run the training container (defaults to `--timerange 20240215-20250930`):
 ```bash
 docker compose -f docker/docker-compose.train.jetson.yml run --rm freqai-train
+```
+
+By default, the service first downloads historical data for all required timeframes
+before backtesting (Option A). It runs `tools/download_data.sh`, which fetches:
+- Timeframes: `5m 15m 1h` (override with `DOWNLOAD_TIMEFRAMES`)
+- Timerange: `${DOWNLOAD_START}-${TIMERANGE end}`; defaults are `20231001` to the end
+  portion of `TIMERANGE` (falling back to today if not set).
+
+Override defaults, for example:
+```bash
+DOWNLOAD_START=20230101 DOWNLOAD_TIMEFRAMES="5m 15m 1h 4h" \
+  docker compose -f docker/docker-compose.train.jetson.yml run --rm freqai-train
 ```
 
 Debugging tips
@@ -25,11 +37,12 @@ Debugging tips
 
 The default command executes:
 ```bash
+tools/download_data.sh && \
 freqtrade backtesting \
   --config user_data/config.json \
   --strategy MyRLStrategy \
   --freqaimodel ReinforcementLearner \
-  --timerange ${TIMERANGE-20240101-20250930}
+  --timerange ${TIMERANGE-20240215-20250930}
 ```
 
 ## Customizing the training run

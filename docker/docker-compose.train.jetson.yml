@@ -10,7 +10,10 @@ services:
     environment:
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
-      TIMERANGE: ${TIMERANGE:-20240101-20250930}
+      TIMERANGE: ${TIMERANGE:-20240215-20250930}
+      # Option A default: ensure data coverage prior to backtesting
+      DOWNLOAD_START: ${DOWNLOAD_START:-20231001}
+      # DOWNLOAD_TIMEFRAMES defaults to "5m 15m 1h" in the script
       PYTHONFAULTHANDLER: "1"
       PYTHONUNBUFFERED: "1"
       PYTHONWARNINGS: default
@@ -25,18 +28,15 @@ services:
       - ../tools:/freqtrade/tools
     working_dir: /freqtrade
     command:
-      - freqtrade
-      - backtesting
-      - --config
-      - user_data/config.json
-      - --strategy
-      - MyRLStrategy
-      - --freqaimodel
-      - ReinforcementLearner
-      - --strategy-path
-      - user_data/strategies
-      - --timerange
-      - ${TIMERANGE:-20240101-20250930}
-      - -vv
-      - --logfile
-      - user_data/logs/train-debug.log
+      - bash
+      - -lc
+      - |
+        bash tools/download_data.sh && \
+        freqtrade backtesting \
+          --config user_data/config.json \
+          --strategy MyRLStrategy \
+          --freqaimodel ReinforcementLearner \
+          --strategy-path user_data/strategies \
+          --timerange ${TIMERANGE:-20240101-20250930} \
+          -vv \
+          --logfile user_data/logs/train-debug.log

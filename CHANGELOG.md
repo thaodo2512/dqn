@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.6] - 2025-09-30
+### Fixed
+- Set a safer default `TIMERANGE` in the training compose to `20240215-20250930` to
+  guarantee FreqAI multi-timeframe warmup coverage with data that starts at
+  `2024-01-01`, preventing `all training data dropped due to NaNs`.
+- Updated documentation to reflect the new default timerange.
+
+## [0.2.5] - 2025-09-30
+### Changed
+- Adopted Option A as default: training and trade compose services now run a
+  pre-download step (`tools/download_data.sh`) to fetch historical data across
+  `5m 15m 1h` before execution, ensuring FreqAI warmup coverage and avoiding NaN
+  drops. Default download timerange is `DOWNLOAD_START=20231001` to the end of
+  `TIMERANGE` (or today) and can be overridden via environment variables.
+- Updated `docker/docker-compose.train.jetson.yml` and `docker/docker-compose.jetson.yml`
+  to invoke the pre-download step.
+- Documented the new default behavior and overrides in `docs/freqai-training.md` and
+  `README_RL.md`.
+
 ## [0.2.4] - 2025-09-30
 ### Changed
 - Retargeted the Jetson Docker build to a JetPack 6.2.1 compatible base image, pinned

@@ -17,10 +17,24 @@ freqtrade create-userdir --userdir user_data
 ```bash
 freqtrade download-data \
   --timeframe 5m \
-  --timerange -30d \
+  --timerange -180d \
   --trading-mode futures \
   --config user_data/config.json
 ```
+
+Optional: fetch all configured timeframes in one go (5m, 15m, 1h):
+```bash
+freqtrade download-data \
+  --timeframes 5m 15m 1h \
+  --timerange -180d \
+  --trading-mode futures \
+  --config user_data/config.json
+```
+
+Docker training defaults to Option A (auto-download with warmup cushion). When using
+`docker-compose.train.jetson.yml`, data for `5m 15m 1h` is downloaded for
+`20231001-<TIMERANGE end>` automatically via `tools/download_data.sh` before the
+backtest runs. Override with `DOWNLOAD_START` / `DOWNLOAD_TIMEFRAMES`.
 
 ## Pair Discovery
 ```bash
