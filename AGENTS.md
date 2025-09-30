@@ -6,6 +6,9 @@ Use this repository to keep Deep Q-Network research assets organized and reprodu
 ## Build, Test, and Development Commands
 Create an isolated environment before installing dependencies: `python -m venv .venv && source .venv/bin/activate`. Install requirements with `pip install -r requirements.txt` and keep the file sorted. Run `ruff check src tests` and `black src tests` to enforce formatting, followed by `mypy src` for type safety. Execute unit and integration tests with `pytest` (e.g., `pytest -m "not slow"`). Training scripts under `scripts/` should be runnable via `python scripts/train.py --config configs/cartpole.yaml` and accept `--seed` for repeatability.
 
+## Jetson Orin Nano Compatibility
+Assume contributors work on JetPack 5.x (Ubuntu 20.04 aarch64). When suggesting package installs, prefer commands verified on Jetson—for example, use `sudo apt-get install python3-opencv` or `pip install --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v51 torch==2.1.0` rather than x86-only mirrors. Check that binaries ship `linux_aarch64` wheels or fall back to source builds with documented flags, and call out GPU dependencies that require NVIDIA CUDA libraries bundled with JetPack.
+
 ## Coding Style & Naming Conventions
 Target Python 3.11 and rely on type hints across the codebase. Modules and functions use `snake_case`, classes use `PascalCase`, and constants use `SCREAMING_SNAKE_CASE`. Keep public APIs documented with doctrings and include inline comments only when business logic is not obvious. Limit lines to 100 characters so `black` and `ruff` stay aligned. Prefer descriptive config filenames such as `double-dqn.yaml`, and prefix experiment folders with `YYYYMMDD_short-description`.
 
