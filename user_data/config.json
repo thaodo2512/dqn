@@ -52,6 +52,20 @@
       "train_cycles": 25,
       "total_timesteps": 200000,
       "optimize_hyperparams": false,
+
+      "reward_kwargs": {
+        "fee_rate": 0.0007,
+        "turnover_penalty": 0.10,
+        "churn_penalty": 0.01,
+        "drawdown_factor": 0.05,
+        "churn_window_steps": 6,
+        "vol_alpha": 10.0,
+        "vol_beta": 1.0,
+        "taker_weight": 0.6,
+        "oi_weight": 0.4,
+        "reward_clip": 5.0,
+        "max_trade_duration_candles": 300
+      },
       "hyperparams": {
         "learning_rate": 0.0001,
         "buffer_size": 100000,

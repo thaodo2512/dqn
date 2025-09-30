@@ -45,12 +45,27 @@ class MyFiveActionEnv(Base5ActionRLEnv):
         starting_point: bool = True,
     ) -> None:
         super().reset_env(df, prices, window_size, reward_kwargs, starting_point)
+        # Cache reward configuration (with safe defaults) for runtime control via config.json
+        cfg = reward_kwargs or {}
+        self._reward_cfg = cfg
         self._equity: float = 1.0
         self._equity_peak: float = 1.0
         self._prev_drawdown: float = 0.0
         self._last_direction: int = 0
         self._last_direction_tick: int = -1
         self._prev_action: int = Actions.Neutral.value
+        # Tunable weights and penalties
+        self._fee_rate: float = float(cfg.get("fee_rate", FEE_RATE))
+        self._turnover_penalty: float = float(cfg.get("turnover_penalty", TURNOVER_PENALTY))
+        self._churn_penalty: float = float(cfg.get("churn_penalty", CHURN_PENALTY))
+        self._drawdown_factor: float = float(cfg.get("drawdown_factor", DRAWDOWN_FACTOR))
+        self._churn_window: int = int(cfg.get("churn_window_steps", CHURN_WINDOW_STEPS))
+        self._vol_alpha: float = float(cfg.get("vol_alpha", 10.0))
+        self._vol_beta: float = float(cfg.get("vol_beta", 1.0))
+        self._w_taker: float = float(cfg.get("taker_weight", 0.6))
+        self._w_oi: float = float(cfg.get("oi_weight", 0.4))
+        self._reward_clip: float = float(cfg.get("reward_clip", 5.0))
+        self._max_trade_duration: int = int(cfg.get("max_trade_duration_candles", 0))
 
     def calculate_reward(self, action: int) -> float:  # noqa: PLR0915
         if not self._is_valid(action):
@@ -79,7 +94,7 @@ class MyFiveActionEnv(Base5ActionRLEnv):
         denom = abs(vol_feature) + FLOAT_EPS
         risk_adjusted_return = step_return / denom if step_return else 0.0
         # Additional volatility damping to reduce choppy-period over-rewarding
-        vol_damp = 1.0 / (1.0 + max(vol_feature, 0.0))
+        vol_damp = 1.0 / pow(1.0 + self._vol_alpha * max(vol_feature, 0.0), self._vol_beta)
         risk_adjusted_return *= vol_damp
         risk_adjusted_return = float(np.clip(risk_adjusted_return, -5.0, 5.0))
 
@@ -91,7 +106,7 @@ class MyFiveActionEnv(Base5ActionRLEnv):
             drawdown = (self._equity_peak - self._equity) / self._equity_peak
         incremental_drawdown = max(0.0, drawdown - self._prev_drawdown)
         self._prev_drawdown = drawdown
-        drawdown_penalty = incremental_drawdown * DRAWDOWN_FACTOR
+        drawdown_penalty = incremental_drawdown * self._drawdown_factor
 
         fee_penalty = 0.0
         if action in (
@@ -100,7 +115,7 @@ class MyFiveActionEnv(Base5ActionRLEnv):
             Actions.Long_exit.value,
             Actions.Short_exit.value,
         ):
-            fee_penalty = FEE_RATE
+            fee_penalty = self._fee_rate
 
         turnover_penalty = 0.0
         if action in (
@@ -109,7 +124,7 @@ class MyFiveActionEnv(Base5ActionRLEnv):
             Actions.Long_exit.value,
             Actions.Short_exit.value,
         ):
-            turnover_penalty = TURNOVER_PENALTY
+            turnover_penalty = self._turnover_penalty
 
         churn_penalty = 0.0
         if action in (Actions.Long_enter.value, Actions.Short_enter.value):
@@ -117,8 +132,8 @@ class MyFiveActionEnv(Base5ActionRLEnv):
             if self._last_direction and direction != self._last_direction:
                 if self._last_direction_tick >= 0 and (
                     current_tick - self._last_direction_tick
-                ) <= CHURN_WINDOW_STEPS:
-                    churn_penalty = CHURN_PENALTY
+                ) <= self._churn_window:
+                    churn_penalty = self._churn_penalty
             self._last_direction = direction
             self._last_direction_tick = current_tick
         elif action in (Actions.Long_exit.value, Actions.Short_exit.value):
@@ -129,10 +144,10 @@ class MyFiveActionEnv(Base5ActionRLEnv):
         oi_change = float(row.get("%-oi_pct_change", 0.0))
         sentiment_bonus = 0.0
         if self._position == Positions.Long:
-            pos_bonus = 0.5 * max(taker_ratio - 0.5, 0.0) + 0.3 * max(oi_change, 0.0)
+            pos_bonus = self._w_taker * max(taker_ratio - 0.5, 0.0) + self._w_oi * max(oi_change, 0.0)
             sentiment_bonus = float(np.clip(pos_bonus, 0.0, 1.0))
         elif self._position == Positions.Short:
-            pos_bonus = 0.5 * max(0.5 - taker_ratio, 0.0) + 0.3 * max(-oi_change, 0.0)
+            pos_bonus = self._w_taker * max(0.5 - taker_ratio, 0.0) + self._w_oi * max(-oi_change, 0.0)
             sentiment_bonus = float(np.clip(pos_bonus, 0.0, 1.0))
 
         reward = (
@@ -145,14 +160,14 @@ class MyFiveActionEnv(Base5ActionRLEnv):
         )
 
         # Safeguards: penalize excessive trade duration and drawdown breaches
-        max_trade_duration = int(self.rl_config.get("max_trade_duration_candles", 0) or 0)
+        max_trade_duration = self._max_trade_duration
         if max_trade_duration > 0 and self.get_trade_duration() > max_trade_duration:
             reward -= 1.0
         if drawdown > float(self.max_drawdown):
             reward -= 2.0
 
         self._prev_action = action
-        return float(np.clip(reward, -5.0, 5.0))
+        return float(np.clip(reward, -self._reward_clip, self._reward_clip))
 
 
 class MyRLStrategy(FreqaiStrategy):

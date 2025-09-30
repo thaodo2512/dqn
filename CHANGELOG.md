@@ -13,7 +13,7 @@ All notable changes to this project will be documented in this file.
 
 ## [0.2.2] - 2024-07-19
 ### Changed
-- Redesigned DQN reward: volatility damping and OI/taker sentiment bonus integrated into `MyFiveActionEnv.calculate_reward()`.
+- Redesigned DQN reward: volatility damping and OI/taker sentiment bonus integrated into `MyFiveActionEnv.calculate_reward()`; weights now configurable via `freqai.rl_config.reward_kwargs`.
 
 ## [0.1.2] - 2024-07-19
 ### Added

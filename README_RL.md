@@ -64,8 +64,13 @@ Requires the NVIDIA Container Toolkit; the image auto-detects GPU vs CPU PyTorch
 - `4`: exit short → `exit_short = 1`
 
 Reward per step:
-`reward = risk_adjusted_return - 0.0007(per side) - 0.1(turnover) - 0.05*Δdrawdown - 0.01(churn)`.
-The environment tracks equity peaks, applies cooldown penalties on rapid reversals, and uses volatility-scaled returns from the engineered features.
+`reward = (risk_adjusted_return / (1 + α·volatility)^β) - fee - turnover - drawdown*λ - churn + sentiment_bonus`.
+- Fees: 0.0007 per side (configurable).
+- Turnover: 0.1 when entering/exiting.
+- Drawdown: 0.05 × incremental drawdown from equity peak.
+- Churn: 0.01 if reversing within a short window (default 6 candles).
+- Sentiment bonus: weighted OI change and taker buy ratio aligned with position.
+Weights are configurable via `freqai.rl_config.reward_kwargs` in `user_data/config.json`.
 
 ## Feature Set
 - OHLCV, simple/log returns, rolling volatility, RSI(14), EMA(20/50) deltas, spread proxy, close z-score.
