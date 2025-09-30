@@ -5,14 +5,15 @@ FROM nvcr.io/nvidia/l4t-ml:r35.2.1-py3
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git build-essential libffi-dev libssl-dev libstdc++6 \
+    libta-lib0 libta-lib0-dev \
     python3-dev python3-pip python3-venv python3-setuptools \
     && rm -rf /var/lib/apt/lists/*
 
 # Ensure pip is recent
 RUN python3 -m pip install --upgrade pip wheel
 
-# Install Freqtrade + extras and SB3
-RUN pip install --no-cache-dir "freqtrade[all]==2024.1" "stable-baselines3[extra]" "ccxt" "pandas" "numpy"
+# Install Freqtrade + extras and SB3 (Jetson base ships Python 3.8, so pin to compatible release)
+RUN pip install --no-cache-dir "freqtrade[all]==2023.8" "stable-baselines3[extra]" "ccxt" "pandas" "numpy"
 
 # Create app dir
 WORKDIR /freqtrade

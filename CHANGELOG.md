@@ -15,6 +15,10 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Redesigned DQN reward: volatility damping and OI/taker sentiment bonus integrated into `MyFiveActionEnv.calculate_reward()`; weights now configurable via `freqai.rl_config.reward_kwargs`.
 
+## [0.2.3] - 2024-07-19
+### Fixed
+- Updated Jetson Docker image to install `freqtrade[all]==2023.8` (Python 3.8 compatible) and added TA-Lib system libraries.
+
 ## [0.1.2] - 2024-07-19
 ### Added
 - Documented Jetson Orin Nano compatibility requirements for package installation guidance.
