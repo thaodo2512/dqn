@@ -1,0 +1,9 @@
+# Bytecode
+__pycache__/
+*.pyc
+
+# Build artifacts
+*.whl
+
+# Jetson base build outputs
+jp621-build/

@@ -1,9 +1,12 @@
 # Jetson Orin Nano (ARM64) base with PyTorch and SB3 support.
-# Requires NVIDIA Container Toolkit on the device and access to NVIDIA NGC.
-FROM nvcr.io/nvidia/l4t-ml:r35.2.1-py3
+# Build against a JetPack 6.2.1 compatible base image imported locally (see docs).
+ARG BASE_IMAGE=jetson/jp6.2.1-ml:latest
+FROM ${BASE_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN rm -f /etc/apt/sources.list.d/nvidia-l4t.list && \
+    sed -i '/<SOC>/d' /etc/apt/sources.list.d/nvidia-l4t-apt-source.list && \
+    apt-get update && apt-get install -y --no-install-recommends \
     git build-essential libffi-dev libssl-dev libstdc++6 \
     python3-dev python3-pip python3-venv python3-setuptools \
     wget ca-certificates \
@@ -21,14 +24,20 @@ RUN wget -q http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz &&
     cd .. && \
     rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
 
-# Ensure pip is recent
+# Ensure pip is recent (JetPack 6.2.1 base ships Python 3.10)
 RUN python3 -m pip install --upgrade pip wheel
 
-# Install pandas-ta from source archive (PyPI wheels require Python >=3.12)
-RUN pip install --no-cache-dir "https://github.com/twopirllc/pandas-ta/archive/refs/tags/0.3.14b.tar.gz"
+# Install pandas-ta from community-maintained fork (pin Python 3.10 compatible release)
+RUN pip install --no-cache-dir "https://github.com/MerlinR/Pandas-ta-fork/archive/refs/tags/v0.3.14b0.tar.gz"
 
-# Install Freqtrade + extras and SB3 (Jetson base ships Python 3.8, so pin to compatible release)
-RUN pip install --no-cache-dir "freqtrade[all]==2023.8" "stable-baselines3[extra]" "ccxt" "pandas" "numpy"
+# Install Freqtrade + extras and SB3 pinned to the latest Python 3.10 compatible release
+# Also resolve NumPy/SciPy ABI by purging apt's SciPy and installing SciPy 1.13.1 against NumPy 2.x
+RUN apt-get update && \
+    apt-get purge -y python3-scipy python3-sympy python3-mpmath && \
+    apt-get install -y --no-install-recommends libatlas-base-dev libblas-dev liblapack-dev gfortran && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* && \
+    pip install --no-cache-dir "freqtrade[all]==2025.6" "stable-baselines3[extra]" "ccxt" && \
+    pip install --no-cache-dir scipy==1.13.1
 
 # Create app dir
 WORKDIR /freqtrade

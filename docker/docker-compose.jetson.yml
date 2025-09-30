@@ -3,7 +3,10 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.jetson
+      args:
+        BASE_IMAGE: jetson/jp6.2.1-ml:latest
     container_name: freqai_dqn_jetson
+    runtime: nvidia
     restart: unless-stopped
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
@@ -19,10 +22,7 @@ services:
       - ../user_data:/freqtrade/user_data
       - ../tools:/freqtrade/tools
     working_dir: /freqtrade
-    command: >
-      bash -lc "
-      freqtrade trade
-        --config user_data/config.json
-        --strategy MyRLStrategy
-        --dry-run
-      "
+    command:
+      - bash
+      - -lc
+      - freqtrade trade --config user_data/config.json --strategy MyRLStrategy --dry-run
