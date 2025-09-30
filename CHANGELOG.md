@@ -9,9 +9,9 @@ All notable changes to this project will be documented in this file.
   `2024-01-01`, preventing `all training data dropped due to NaNs`.
 - Updated documentation to reflect the new default timerange.
 ### Changed
-- Made `tools/download_data.sh` compatible with older Freqtrade CLIs by avoiding
-  unsupported flags (`-t`, `--show-timeranges`) and autodetecting `--timeframes`
-  support when listing downloaded data.
+- Made `tools/download_data.sh` robust across Freqtrade versions when listing data:
+  avoid timeframe filters for `list-data` and prefer `--show-timerange` (singular)
+  when available; otherwise fall back to a plain listing.
 
 ## [0.2.5] - 2025-09-30
 ### Changed

@@ -31,15 +31,14 @@ freqtrade download-data \
   --timeframes ${DOWNLOAD_TIMEFRAMES} \
   --timerange "${DOWNLOAD_START}-${DOWNLOAD_END}"
 
-echo "[download-data] Available data after download (CLI-compatible):" >&2
-if freqtrade list-data --help 2>/dev/null | grep -q -- "--timeframes"; then
-  # Newer CLI supports --timeframes; print available files for requested TFs
+echo "[download-data] Available data after download:" >&2
+# Prefer showing timerange if the CLI supports it; don't pass timeframe filters here.
+if freqtrade list-data --help 2>/dev/null | grep -q -- "--show-timerange"; then
   freqtrade list-data \
     --trading-mode futures \
     --config "${FT_CONFIG}" \
-    --timeframes ${DOWNLOAD_TIMEFRAMES} || true
+    --show-timerange || true
 else
-  # Fallback: older CLI without --timeframes/--show-timeranges
   freqtrade list-data \
     --trading-mode futures \
     --config "${FT_CONFIG}" || true
