@@ -68,7 +68,7 @@ def yyyymmdd_to_dt(s: str) -> dt.datetime:
     return dt.datetime.strptime(s, "%Y%m%d").replace(tzinfo=dt.timezone.utc)
 
 
-def run_list_data(config: str, pairs_file: str, timeframes: List[str]) -> str:
+def run_list_data(config: str, pairs: List[str]) -> str:
     cmd = [
         "freqtrade",
         "list-data",
@@ -76,10 +76,8 @@ def run_list_data(config: str, pairs_file: str, timeframes: List[str]) -> str:
         "futures",
         "--config",
         config,
-        "--pairs-file",
-        pairs_file,
-        "--timeframes",
-        *timeframes,
+        "-p",
+        *pairs,
         "--show-timerange",
     ]
     proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
@@ -87,19 +85,41 @@ def run_list_data(config: str, pairs_file: str, timeframes: List[str]) -> str:
 
 
 def parse_starts(output: str) -> Dict[Tuple[str, str], dt.datetime]:
+    """Parse starts from freqtrade list-data output.
+
+    Supports both legacy "data starts at" lines and tabular output with box-drawing chars.
+    """
     starts: Dict[Tuple[str, str], dt.datetime] = {}
     for line in output.splitlines():
-        m = LINE_RE.search(line.strip())
-        if not m:
+        s = line.strip("\n")
+        # Legacy format
+        m = LINE_RE.search(s)
+        if m:
+            pair = m.group("pair").strip()
+            tf = m.group("tf").strip()
+            start_str = m.group("start").split(" ")[0]
+            try:
+                d = dt.datetime.strptime(start_str, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc)
+                starts[(pair, tf)] = d
+            except Exception:
+                pass
             continue
-        pair = m.group("pair").strip()
-        tf = m.group("tf").strip()
-        start_str = m.group("start").split(" ")[0]  # YYYY-MM-DD
-        try:
-            d = dt.datetime.strptime(start_str, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc)
-            starts[(pair, tf)] = d
-        except Exception:
-            continue
+        # Tabular format: │ pair │ tf │ candle │ start │ end │ rows │
+        if "│" in s and s.count("│") >= 6 and not any(ch in s for ch in ("┌", "┬", "┐", "├", "┼", "┤", "└", "┴", "┘", "─")):
+            parts = [p.strip() for p in s.split("│")]
+            # Expect ['', pair, tf, candle, start, end, rows, ''] or similar
+            if len(parts) >= 7:
+                pair = parts[1]
+                tf = parts[2]
+                candle = parts[3].lower()
+                start_val = parts[4].split(" ")[0]
+                if not pair or not tf or candle not in ("futures", "spot", "ohlcv"):
+                    continue
+                try:
+                    d = dt.datetime.strptime(start_val, "%Y-%m-%d").replace(tzinfo=dt.timezone.utc)
+                    starts[(pair, tf)] = d
+                except Exception:
+                    continue
     return starts
 
 
@@ -109,15 +129,8 @@ def main() -> int:
     if not pairs:
         print("No pairs found in config whitelist/correlated.", file=sys.stderr)
         return 2
-    pairs_file = build_pairs_file(pairs)
-    try:
-        out = run_list_data(args.config, pairs_file, args.timeframes)
-        starts = parse_starts(out)
-    finally:
-        try:
-            os.remove(pairs_file)
-        except Exception:
-            pass
+    out = run_list_data(args.config, pairs)
+    starts = parse_starts(out)
 
     tr_start = yyyymmdd_to_dt(timerange_start_str(args.timerange))
     required_min = tr_start - dt.timedelta(days=args.warmup_days)
@@ -147,4 +160,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

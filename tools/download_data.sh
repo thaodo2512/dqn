@@ -67,6 +67,7 @@ freqtrade download-data \
   --config "${FT_CONFIG}" \
   --timeframes ${DOWNLOAD_TIMEFRAMES} \
   --timerange "${DOWNLOAD_START}-${DOWNLOAD_END}" \
+  --prepend \
   --pairs-file "$PAIRS_FILE"
 
 rm -f "$PAIRS_FILE"
