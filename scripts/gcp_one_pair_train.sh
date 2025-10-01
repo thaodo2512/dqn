@@ -18,7 +18,7 @@ set -euo pipefail
 # Optional (sane defaults prefilled from your VM command):
 #   --project ID          GCP project (default: valiant-epsilon-472304-r9)
 #   --zone ZONE           Zone (default: asia-south1-c)
-#   --instance-name NAME  VM name (default: instance-20251001-151827)
+#   --instance-name NAME  VM name (default: onepair-YYYYMMDD-HHMMSS at runtime)
 #   --timerange STR       Backtest timerange (default: 20240101-20250930)
 #   --threads N           Threads per container (default: 1)
 #   --fresh               Disable model restore for this run
@@ -36,7 +36,8 @@ usage() {
 PAIR=""
 PROJECT_ID=${PROJECT_ID:-valiant-epsilon-472304-r9}
 ZONE=${ZONE:-asia-south1-c}
-INSTANCE_NAME=${INSTANCE_NAME:-instance-20251001-151827}
+# Default to a timestamped instance name so each run is unique
+INSTANCE_NAME=${INSTANCE_NAME:-onepair-$(date +%Y%m%d-%H%M%S)}
 TIMERANGE=${TIMERANGE:-20240101-20250930}
 THREADS=${THREADS:-1}
 FRESH=${FRESH:-0}
@@ -176,4 +177,3 @@ if [[ "$CLEANUP" == "1" ]]; then
 fi
 
 echo "[onepair] Done. Artifacts: ${LOCAL_OUT_DIR}"
-

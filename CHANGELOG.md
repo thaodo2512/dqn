@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.31] - 2025-10-01
+### Changed
+- `scripts/gcp_one_pair_train.sh`: default VM name is now dynamic, using
+  `onepair-YYYYMMDD-HHMMSS` at runtime so each invocation creates a uniquely
+  named instance unless `--instance-name` is provided.
+
 ## [0.2.30] - 2025-10-01
 ### Added
 - One-pair GCP trainer script:
