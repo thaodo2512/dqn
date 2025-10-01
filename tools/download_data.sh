@@ -36,12 +36,15 @@ with open(cfg_path,'r',encoding='utf-8') as fh:
 wl=cfg.get('exchange',{}).get('pair_whitelist',[])
 corr=cfg.get('freqai',{}).get('feature_parameters',{}).get('include_corr_pairlist',[])
 pairs=sorted(set(wl+corr))
-for p in pairs:
-    print(p)
+print(json.dumps(pairs))
 PY
 
 echo "[download-data] Pairs (whitelist + correlated):" >&2
-cat "$PAIRS_FILE" >&2 || true
+python3 - "$PAIRS_FILE" <<'PY'
+import json,sys
+pairs=json.load(open(sys.argv[1],'r',encoding='utf-8'))
+print("\n".join(pairs))
+PY
 
 freqtrade download-data \
   --trading-mode futures \
