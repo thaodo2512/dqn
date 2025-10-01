@@ -1,0 +1,56 @@
+services:
+  # One-off HTML reports on Jetson base (run via: docker compose -f docker/docker-compose.reports.jetson.yml run --rm freqai-reports-jetson)
+  freqai-reports-jetson:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.jetson
+      args:
+        BASE_IMAGE: jetson/jp6.2.1-ml:latest
+    container_name: freqai_reports_jetson
+    runtime: nvidia
+    gpus: all
+    restart: "no"
+    environment:
+      FT_CONFIG: ${FT_CONFIG:-user_data/config.json}
+      RESULTS_JSON: ${RESULTS_JSON:-user_data/backtest_results/latest.json}
+      PAIR: ${PAIR:-BTC/USDT:USDT}
+      TIMERANGE: ${TIMERANGE:-20240101-20250930}
+      MPLBACKEND: Agg
+    volumes:
+      - ../user_data:/freqtrade/user_data
+    working_dir: /freqtrade
+    command: [
+      "bash", "-lc",
+      "set -euo pipefail; \n"
+      "echo '[reports] Using results: ' \"$RESULTS_JSON\"; \n"
+      "freqtrade plot-profit --config \"$FT_CONFIG\" --results \"$RESULTS_JSON\"; \n"
+      "freqtrade plot-dataframe --config \"$FT_CONFIG\" --strategy-path user_data/strategies --strategy MyRLStrategy -p \"$PAIR\" --timerange \"$TIMERANGE\" || true; \n"
+      "echo '[reports] HTML saved under user_data/plot/'"
+    ]
+
+  # Web UI on Jetson (open http://localhost:8080)
+  freqai-webui-jetson:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.jetson
+      args:
+        BASE_IMAGE: jetson/jp6.2.1-ml:latest
+    container_name: freqai_webui_jetson
+    runtime: nvidia
+    gpus: all
+    restart: unless-stopped
+    environment:
+      FT_CONFIG: ${FT_CONFIG:-user_data/config.json}
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      PYTHONFAULTHANDLER: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: default
+      MPLBACKEND: Agg
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../user_data:/freqtrade/user_data
+    working_dir: /freqtrade
+    command: ["bash", "-lc", "freqtrade webserver --config \"$FT_CONFIG\""]
+

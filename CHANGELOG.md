@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.21] - 2025-10-01
+### Added
+- Reports and Web UI compose stacks:
+  - `docker/docker-compose.reports.cpu.x86.yml` for x86 CPU: one-off HTML report generator (`plot-profit` / `plot-dataframe`) and a persistent Web UI service on port 8080.
+  - `docker/docker-compose.reports.jetson.yml` for Jetson: same reporting workflow plus GPU-capable Web UI.
+  Both mount `user_data/` so generated HTML appears under `user_data/plot/` on the host.
+
 ## [0.2.16] - 2025-10-01
 ### Changed
 - Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training

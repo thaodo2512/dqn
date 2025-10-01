@@ -1,0 +1,48 @@
+services:
+  # One-off HTML reports generator (run via: docker compose -f docker/docker-compose.reports.cpu.x86.yml run --rm freqai-reports-cpu-x86)
+  freqai-reports-cpu-x86:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.cpu
+    container_name: freqai_reports_cpu_x86
+    restart: "no"
+    environment:
+      # Override at runtime: RESULTS_JSON=/freqtrade/user_data/backtest_results/<file>.json
+      FT_CONFIG: ${FT_CONFIG:-user_data/config.json}
+      RESULTS_JSON: ${RESULTS_JSON:-user_data/backtest_results/latest.json}
+      PAIR: ${PAIR:-BTC/USDT:USDT}
+      TIMERANGE: ${TIMERANGE:-20240101-20250930}
+      MPLBACKEND: Agg
+    volumes:
+      - ../user_data:/freqtrade/user_data
+    working_dir: /freqtrade
+    command: [
+      "bash", "-lc",
+      # Generate profit curve + a sample per-pair dataframe plot
+      "set -euo pipefail; \n"
+      "echo '[reports] Using results: ' \"$RESULTS_JSON\"; \n"
+      "freqtrade plot-profit --config \"$FT_CONFIG\" --results \"$RESULTS_JSON\"; \n"
+      "freqtrade plot-dataframe --config \"$FT_CONFIG\" --strategy-path user_data/strategies --strategy MyRLStrategy -p \"$PAIR\" --timerange \"$TIMERANGE\" || true; \n"
+      "echo '[reports] HTML saved under user_data/plot/'"
+    ]
+
+  # Persistent Web UI (open http://localhost:8080)
+  freqai-webui-cpu-x86:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.cpu
+    container_name: freqai_webui_cpu_x86
+    restart: unless-stopped
+    environment:
+      FT_CONFIG: ${FT_CONFIG:-user_data/config.json}
+      PYTHONFAULTHANDLER: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: default
+      MPLBACKEND: Agg
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../user_data:/freqtrade/user_data
+    working_dir: /freqtrade
+    command: ["bash", "-lc", "freqtrade webserver --config \"$FT_CONFIG\""]
+
