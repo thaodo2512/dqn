@@ -87,6 +87,7 @@ def launch_one_pair(
     id_prefix: str,
     id_suffix: str,
     fresh: bool,
+    overlay_base: Path,
 ) -> int:
     cfg_dir = host_cfg.parent.resolve()
     cfg_base = host_cfg.name
@@ -94,24 +95,24 @@ def launch_one_pair(
     ident = f"{id_prefix}dqn-{sname}{id_suffix}"
 
     # Create overlay configs on host (mounted into container via compose)
-    ud = Path("user_data")
-    ud.mkdir(exist_ok=True)
+    ov_host = overlay_base
+    ov_host.mkdir(exist_ok=True, parents=True)
 
-    cpu_dev_path = ud / "cpu-device.json"
+    cpu_dev_path = ov_host / "cpu-device.json"
     if not cpu_dev_path.exists():
         cpu_dev_path.write_text(json.dumps({
             "freqai": {"rl_config": {"hyperparams": {"device": "cpu"}}}
         }))
 
-    id_path = ud / f"id-{sname}.json"
+    id_path = ov_host / f"id-{sname}.json"
     id_path.write_text(json.dumps({"freqai": {"identifier": ident}}))
 
-    pair_cfg_path = ud / f"pairs-{sname}.json"
+    pair_cfg_path = ov_host / f"pairs-{sname}.json"
     pair_cfg_path.write_text(json.dumps({"exchange": {"pair_whitelist": [pair]}}))
 
     debug_cfg_opt = ""
     if reward_debug:
-        dbg_path = ud / f"reward-debug-{sname}.json"
+        dbg_path = ov_host / f"reward-debug-{sname}.json"
         dbg_path.write_text(json.dumps({
             "freqai": {"log_level": "DEBUG", "rl_config": {"reward_kwargs": {"debug_log": True}}}
         }))
@@ -119,15 +120,19 @@ def launch_one_pair(
 
     restore_cfg_opt = ""
     if fresh:
-        rst_path = ud / f"restore-false-{sname}.json"
+        rst_path = ov_host / f"restore-false-{sname}.json"
         rst_path.write_text(json.dumps({"freqai": {"restore_best_model": False}}))
         restore_cfg_opt = f" --config {rst_path}"
+
+    # Container-visible overlay directory
+    use_user_data_mount = (ov_host.resolve() == Path("user_data").resolve())
+    ov_container = "/freqtrade/user_data" if use_user_data_mount else "/freqtrade/overlays"
 
     inner = (
         "mkdir -p user_data/logs && "
         + "freqtrade backtesting "
         + f"--config /freqtrade/user_config/{shlex.quote(cfg_base)} "
-        + f"--config user_data/cpu-device.json --config user_data/id-{sname}.json --config {pair_cfg_path}{debug_cfg_opt}{restore_cfg_opt} "
+        + f"--config {ov_container}/cpu-device.json --config {ov_container}/id-{sname}.json --config {ov_container}/pairs-{sname}.json{debug_cfg_opt}{restore_cfg_opt} "
         + "--strategy-path user_data/strategies --strategy MyRLStrategy "
         + "--freqaimodel ReinforcementLearner "
         + f"-p {shlex.quote(pair)} "
@@ -154,11 +159,16 @@ def launch_one_pair(
         f"TORCH_NUM_THREADS={threads}",
         "-v",
         f"{cfg_dir}:/freqtrade/user_config:ro",
+    ]
+    # Mount overlays when not using user_data as base
+    if not use_user_data_mount:
+        cmd.extend(["-v", f"{str(ov_host.resolve())}:/freqtrade/overlays:ro"])
+    cmd.extend([
         service,
         "bash",
         "-lc",
         inner,
-    ]
+    ])
     return shell(cmd)
 
 
@@ -329,6 +339,18 @@ def main(argv: Iterable[str]) -> int:
         print(f"[train_pairs] Prefetch failed with code {rc}", file=sys.stderr)
         return rc
 
+    # Choose overlay base dir: prefer user_data, but if not writable, fall back to .overlays
+    overlay_base = Path("user_data")
+    try:
+        overlay_base.mkdir(exist_ok=True)
+        test_path = overlay_base / ".writetest"
+        test_path.write_text("ok")
+        test_path.unlink(missing_ok=True)  # type: ignore[arg-type]
+    except Exception:
+        overlay_base = Path(".overlays")
+        overlay_base.mkdir(exist_ok=True)
+        print(f"[train_pairs] user_data not writable; using {overlay_base} for overlays")
+
     # Fan out containers with bounded parallelism
     results: List[tuple[str, int]] = []
     with ThreadPoolExecutor(max_workers=conc) as ex:
@@ -345,6 +367,7 @@ def main(argv: Iterable[str]) -> int:
                 str(args.id_prefix or ""),
                 str(args.id_suffix or ""),
                 bool(args.fresh),
+                overlay_base,
             ): pair
             for pair in pairs
         }
