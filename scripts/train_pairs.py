@@ -83,23 +83,38 @@ def train_one_pair(
     pair: str,
     threads: int,
     timerange: str,
+    reward_debug: bool,
 ) -> int:
     cfg_dir = host_cfg.parent.resolve()
     cfg_base = host_cfg.name
     sname = safe_name(pair)
     # Build the in-container command: ensure logs dir, write CPU device override and identifier, run backtesting
+    parts = [
+        "mkdir -p user_data/logs",
+        # Force CPU device for SB3
+        "echo '{\"freqai\":{\"rl_config\":{\"hyperparams\":{\"device\":\"cpu\"}}}}' > user_data/cpu-device.json",
+        # Unique identifier per pair
+        f"echo '{{\"freqai\":{{\"identifier\":\"dqn-{sname}\"}}}}' > user_data/id-{sname}.json",
+    ]
+    debug_cfg_opt = ""
+    if reward_debug:
+        dbg_path = f"user_data/reward-debug-{sname}.json"
+        parts.append(
+            f"echo '{{\"freqai\":{{\"log_level\":\"DEBUG\",\"rl_config\":{{\"reward_kwargs\":{{\"debug_log\": true}}}}}}}}' > {dbg_path}"
+        )
+        debug_cfg_opt = f" --config {dbg_path}"
+
     inner = (
-        "mkdir -p user_data/logs && "
-        f"printf '{{\"freqai\":{{\"rl_config\":{{\"hyperparams\":{{\"device\":\"cpu\"}}}}}}}}' > user_data/cpu-device.json && "
-        f"printf '{{\"freqai\":{{\"identifier\":\"dqn-{sname}\"}}}}' > user_data/id-{sname}.json && "
-        "freqtrade backtesting "
-        f"--config /freqtrade/user_config/{shlex.quote(cfg_base)} "
-        f"--config user_data/cpu-device.json --config user_data/id-{sname}.json "
-        "--strategy-path user_data/strategies --strategy MyRLStrategy "
-        "--freqaimodel ReinforcementLearner "
-        f"-p {shlex.quote(pair)} "
-        f"--timerange {shlex.quote(timerange)} -vv "
-        f"--logfile user_data/logs/train-{sname}.log"
+        " && ".join(parts)
+        + " && "
+        + "freqtrade backtesting "
+        + f"--config /freqtrade/user_config/{shlex.quote(cfg_base)} "
+        + f"--config user_data/cpu-device.json --config user_data/id-{sname}.json{debug_cfg_opt} "
+        + "--strategy-path user_data/strategies --strategy MyRLStrategy "
+        + "--freqaimodel ReinforcementLearner "
+        + f"-p {shlex.quote(pair)} "
+        + f"--timerange {shlex.quote(timerange)} -vv "
+        + f"--logfile user_data/logs/train-{sname}.log"
     )
 
     cmd = [
@@ -167,6 +182,11 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         "--pairs",
         nargs="*",
         help="Optional explicit list of pairs; overrides config whitelist",
+    )
+    p.add_argument(
+        "--reward-debug",
+        action="store_true",
+        help="Enable detailed reward component logging and set FreqAI log level to DEBUG",
     )
     return p.parse_args(list(argv))
 
@@ -276,6 +296,7 @@ def main(argv: Iterable[str]) -> int:
                 pair,
                 threads,
                 args.timerange,
+                bool(args.reward_debug),
             ): pair
             for pair in pairs
         }
