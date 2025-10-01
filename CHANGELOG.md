@@ -54,6 +54,12 @@ All notable changes to this project will be documented in this file.
   Both enable the API server on port 8080 and run `freqtrade trade` with the
   inference-only overlay. Open http://localhost:8080 to monitor the bot.
 
+## [0.2.29] - 2025-10-01
+### Fixed
+- `scripts/gcp_e2e_train.sh`: replace `--create-disk ... boot=yes` with
+  `--boot-disk-size/--boot-disk-type/--boot-disk-auto-delete` to avoid
+  "Boot disk must have a source specified" during VM creation.
+
 ## [0.2.16] - 2025-10-01
 ### Changed
 - Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training

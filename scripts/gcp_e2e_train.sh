@@ -49,7 +49,7 @@ CREATE_ARGS=(
   --provisioning-model=STANDARD
   --scopes "$SCOPES"
   --image-family "$IMAGE_FAMILY" --image-project "$IMAGE_PROJECT"
-  --create-disk=size=${DISK_SIZE_GB},type=${DISK_TYPE},auto-delete=yes,boot=yes
+  --boot-disk-size=${DISK_SIZE_GB} --boot-disk-type=${DISK_TYPE} --boot-disk-auto-delete
   --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring
 )
 [[ -n "$SERVICE_ACCOUNT" ]] && CREATE_ARGS+=(--service-account "$SERVICE_ACCOUNT")
@@ -111,4 +111,3 @@ if [[ "${CLEANUP:-true}" == "true" ]]; then
 fi
 
 echo "[gcp_e2e] Done. Local artifacts: ${OUTPUT_LOCAL_DIR}"
-
