@@ -95,6 +95,32 @@ These CPU variants force SB3 `device: cpu` and the launcher auto-detects all
 available cores, setting thread env vars for NumPy/BLAS/NumExpr/Torch to fully
 utilize the CPU.
 
+## HTML Reports & Web UI
+Generate interactive HTML reports from backtest results or browse via the Web UI.
+
+x86 CPU (reports + Web UI)
+- Generate HTML reports (saves to `user_data/plot/`):
+  `docker compose -f docker/docker-compose.reports.cpu.x86.yml run --rm freqai-reports-cpu-x86`
+- Start Web UI at http://localhost:8080:
+  `docker compose -f docker/docker-compose.reports.cpu.x86.yml up -d freqai-webui-cpu-x86`
+- Optional overrides:
+  - `RESULTS_JSON=user_data/backtest_results/<file>.json`
+  - `PAIR=BTC/USDT:USDT`
+  - `TIMERANGE=20240101-20250930`
+  - `FT_CONFIG=user_data/config.json`
+
+Jetson (reports + Web UI)
+- Generate HTML reports:
+  `docker compose -f docker/docker-compose.reports.jetson.yml run --rm freqai-reports-jetson`
+- Start Web UI at http://localhost:8080:
+  `docker compose -f docker/docker-compose.reports.jetson.yml up -d freqai-webui-jetson`
+
+Notes
+- Make sure you have a backtest results JSON. If not, rerun backtesting with:
+  `freqtrade backtesting --config user_data/config.json --strategy-path user_data/strategies --strategy MyRLStrategy --freqaimodel ReinforcementLearner --export-filename user_data/backtest_results/latest.json`
+- The Web UI reads credentials from `user_data/config.json` (API server section). The
+  `webserver` command runs regardless of the `enabled` flag.
+
 ## Action Mapping & Reward
 - `0`: hold
 - `1`: enter long → `enter_long = 1`
