@@ -1,0 +1,49 @@
+# General CPU-only image for x86_64 (no Jetson/CUDA).
+FROM python:3.11-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git build-essential libffi-dev libssl-dev libstdc++6 \
+    python3-dev python3-venv python3-setuptools \
+    wget ca-certificates \
+    gfortran libatlas-base-dev libblas-dev liblapack-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Build and install TA-Lib from source (required by freqtrade extras)
+RUN wget -q http://prdownloads.sourceforge.net/ta-lib/ta-lib-0.4.0-src.tar.gz && \
+    tar -xzf ta-lib-0.4.0-src.tar.gz && \
+    cd ta-lib && \
+    wget -q -O config.guess https://git.savannah.gnu.org/gitweb/?p=config.git\;a=blob_plain\;f=config.guess && \
+    wget -q -O config.sub https://git.savannah.gnu.org/gitweb/?p=config.git\;a=blob_plain\;f=config.sub && \
+    ./configure --prefix=/usr && \
+    make && \
+    make install && \
+    cd .. && \
+    rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
+
+# Ensure pip is recent
+RUN python -m pip install --upgrade pip wheel
+
+# Install pandas-ta fork compatible with current pandas
+RUN pip install --no-cache-dir "https://github.com/MerlinR/Pandas-ta-fork/archive/refs/tags/v0.3.14b0.tar.gz"
+
+# Install Freqtrade + extras and Stable-Baselines3
+# SciPy pin to a broadly compatible wheel; CPU PyTorch from official index
+RUN pip install --no-cache-dir \
+      "freqtrade[all]==2025.6" "stable-baselines3[extra]" "ccxt" scipy==1.13.1 && \
+    pip install --no-cache-dir \
+      --index-url https://download.pytorch.org/whl/cpu \
+      torch torchvision
+
+WORKDIR /freqtrade
+RUN freqtrade create-userdir --userdir /freqtrade/user_data || true
+
+# Copy project assets (you may also bind-mount via compose)
+COPY user_data /freqtrade/user_data
+COPY tools /freqtrade/tools
+COPY scripts /freqtrade/scripts
+
+EXPOSE 8080
+
+CMD ["python", "scripts/launch_with_all_cores.py", "--mode", "trade"]
+

@@ -79,10 +79,16 @@ GPU usage
 - Verify inside container:
   `docker compose -f docker/docker-compose.train.jetson.yml run --rm freqai-train python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"`
 
-CPU-only compose
+CPU-only compose (x86/general CPU)
 - Training (backtesting + RL, CPU only):
-  `docker compose -f docker/docker-compose.train.cpu.yml run --rm freqai-train-cpu`
+  `docker compose -f docker/docker-compose.train.cpu.x86.yml run --rm freqai-train-cpu-x86`
 - Dry-run trading (CPU only):
+  `docker compose -f docker/docker-compose.cpu.x86.yml up --build -d`
+
+CPU-only compose (Jetson/ARM64)
+- Training (backtesting + RL):
+  `docker compose -f docker/docker-compose.train.cpu.yml run --rm freqai-train-cpu`
+- Dry-run trading:
   `docker compose -f docker/docker-compose.cpu.yml up --build -d`
 
 These CPU variants force SB3 `device: cpu` and the launcher auto-detects all

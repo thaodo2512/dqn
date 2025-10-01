@@ -28,6 +28,15 @@ All notable changes to this project will be documented in this file.
 - Launcher now honors `FORCE_CPU=1` or `FREQAI_DEVICE=cpu`, generating a small
   `user_data/cpu-device.json` override and setting `CUDA_VISIBLE_DEVICES=""`.
 
+## [0.2.19] - 2025-10-01
+### Added
+- x86/general CPU support:
+  - `docker/Dockerfile.cpu` (Python 3.11 slim, TA-Lib, Freqtrade 2025.6, SB3, PyTorch CPU)
+  - `docker/docker-compose.train.cpu.x86.yml` (training/backtesting)
+  - `docker/docker-compose.cpu.x86.yml` (dry-run trading)
+### Docs
+- Updated `README_RL.md` and `docs/freqai-training.md` with x86 CPU-only commands.
+
 ## [0.2.6] - 2025-09-30
 ### Fixed
 - Set a safer default `TIMERANGE` in the training compose to `20240215-20250930` to

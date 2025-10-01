@@ -1,0 +1,23 @@
+services:
+  freqai-train-cpu-x86:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.cpu
+    container_name: freqai_dqn_train_cpu_x86
+    restart: unless-stopped
+    environment:
+      TIMERANGE: ${TIMERANGE:-20240101-20250930}
+      DOWNLOAD_START: ${DOWNLOAD_START:-20231001}
+      PYTHONFAULTHANDLER: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: default
+      MPLBACKEND: Agg
+      # Force CPU in the launcher and SB3
+      FORCE_CPU: "1"
+    volumes:
+      - ../user_data:/freqtrade/user_data
+      - ../tools:/freqtrade/tools
+      - ../scripts:/freqtrade/scripts
+    working_dir: /freqtrade
+    command: ["python", "scripts/launch_with_all_cores.py", "--mode", "train"]
+

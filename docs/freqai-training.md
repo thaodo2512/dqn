@@ -58,12 +58,29 @@ python scripts/launch_with_all_cores.py --mode train
 Internally, this script calls `tools/download_data.sh` and then `freqtrade
 backtesting` with the configured `TIMERANGE`.
 
-## CPU-only variant
-Use the CPU-only compose to force SB3 to run on CPU and still utilize all cores:
+## CPU-only variants
+
+CPU-only (x86/general CPU):
 ```bash
-docker compose -f docker/docker-compose.train.cpu.yml run --rm freqai-train-cpu
+# Training/backtesting
+docker compose -f docker/docker-compose.train.cpu.x86.yml run --rm freqai-train-cpu-x86
+
+# Dry-run trading
+docker compose -f docker/docker-compose.cpu.x86.yml up --build -d
 ```
-This uses the same launcher and sets `device: cpu` via a small config override.
+These use a Python 3.11 slim base and install CPU-only PyTorch; the launcher
+auto-detects CPU cores and sets thread env vars.
+
+CPU-only (Jetson/ARM64):
+```bash
+# Training/backtesting
+docker compose -f docker/docker-compose.train.cpu.yml run --rm freqai-train-cpu
+
+# Dry-run trading
+docker compose -f docker/docker-compose.cpu.yml up --build -d
+```
+These reuse the Jetson Dockerfile but force CPU; useful when running on Jetson
+without GPU access.
 
 ## Customizing the training run
 Set `TIMERANGE` before invoking the service (default is `20240101-20250930`, provided via
