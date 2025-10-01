@@ -165,39 +165,22 @@ gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_
   --command "rm -rf ~/${REPO_NAME} && mkdir -p ~/${REPO_NAME} && tar -xzf ~/${REPO_NAME}.tar.gz -C ~/${REPO_NAME} && rm -f ~/${REPO_NAME}.tar.gz"
 
 echo "[onepair] Building CPU training image and running single-pair training ..."
-REMOTE_RUN=(
-  "set -euo pipefail; \n"
-  "cd ~/${REPO_NAME} && \n"
-  "docker compose -f docker/docker-compose.train.cpu.x86.yml build && \n"
-  "python3 scripts/train_pairs.py --threads ${THREADS} --concurrency 1 --timerange ${TIMERANGE} --pairs $(printf %q "$PAIR")"
-)
+PAIR_ESC=$(printf %q "$PAIR")
+REMOTE_CMD="set -euo pipefail; cd ~/${REPO_NAME} && docker compose -f docker/docker-compose.train.cpu.x86.yml build && python3 scripts/train_pairs.py --threads ${THREADS} --concurrency 1 --timerange ${TIMERANGE} --pairs ${PAIR_ESC}"
 if [[ -n "$ID_PREFIX" ]]; then
-  REMOTE_RUN+=(" --id-prefix $(printf %q "$ID_PREFIX")")
+  IDP_ESC=$(printf %q "$ID_PREFIX"); REMOTE_CMD+=" --id-prefix ${IDP_ESC}"
 fi
 if [[ -n "$ID_SUFFIX" ]]; then
-  REMOTE_RUN+=(" --id-suffix $(printf %q "$ID_SUFFIX")")
+  IDS_ESC=$(printf %q "$ID_SUFFIX"); REMOTE_CMD+=" --id-suffix ${IDS_ESC}"
 fi
 if [[ "$FRESH" == "1" ]]; then
-  REMOTE_RUN+=(" --fresh")
+  REMOTE_CMD+=" --fresh"
 fi
-gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "${REMOTE_RUN[*]}"
+gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$REMOTE_CMD"
 
 echo "[onepair] Packaging artifacts on VM ..."
-PACK_CMD=(
-  "set -euo pipefail; \n"
-  "cd ~/${REPO_NAME} && \n"
-  "mkdir -p output && \n"
-  "rm -f output/freqaimodels.tgz || true && \n"
-  "tar -C user_data -czf output/freqaimodels.tgz freqaimodels || true && \n"
-  "rm -rf output/freqaimodels && \n"
-  "if [[ -d user_data/freqaimodels ]]; then cp -r user_data/freqaimodels output/; fi && \n"
-  "rm -f output/logs.tgz || true && \n"
-  "tar -C user_data -czf output/logs.tgz logs || true && \n"
-  "rm -rf output/logs && \n"
-  "if [[ -d user_data/logs ]]; then cp -r user_data/logs output/; fi && \n"
-  "echo '[onepair] Artifacts ready under: ' $(pwd)/output"
-)
-gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "${PACK_CMD[*]}"
+PACK_CMD="set -euo pipefail; cd ~/${REPO_NAME} && mkdir -p output; rm -f output/freqaimodels.tgz || true; tar -C user_data -czf output/freqaimodels.tgz freqaimodels || true; rm -rf output/freqaimodels; if [[ -d user_data/freqaimodels ]]; then cp -r user_data/freqaimodels output/; fi; rm -f output/logs.tgz || true; tar -C user_data -czf output/logs.tgz logs || true; rm -rf output/logs; if [[ -d user_data/logs ]]; then cp -r user_data/logs output/; fi; echo '[onepair] Artifacts ready under: ' $(pwd)/output"
+gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$PACK_CMD"
 
 LOCAL_OUT_DIR="gcp-output/${INSTANCE_NAME}"
 mkdir -p "$LOCAL_OUT_DIR"
