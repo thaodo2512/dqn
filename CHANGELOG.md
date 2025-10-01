@@ -40,6 +40,12 @@ All notable changes to this project will be documented in this file.
 - Updated default futures `pair_whitelist` in `user_data/config.json` to:
   BTC, ETH, SOL, XRP, BNB, DOGE, ADA, AVAX, SUI, LTC, DOT, AAVE, ENA, PEPE, NEAR, ONDO (USDT‑M).
 
+## [0.2.27] - 2025-10-01
+### Added
+- `scripts/install_gcp_models.sh` — helper to install the newest (or specified) GCP e2e
+  output models into `user_data/freqaimodels/`, optionally set `freqai.identifier`, and
+  rsync to a Jetson repo path.
+
 ## [0.2.16] - 2025-10-01
 ### Changed
 - Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training
