@@ -41,21 +41,37 @@ fi
 
 echo "[download-data] Timerange: ${DOWNLOAD_START}-${DOWNLOAD_END}" >&2
 
-# Build a pairs-file including both whitelist and correlated pairs, so FreqAI has
-# all required OHLCV available for feature generation.
-PAIRS_FILE=$(mktemp)
-python3 - "$FT_CONFIG" >"$PAIRS_FILE" <<'PY'
+# Build a pairs-file. By default include whitelist + correlated pairs so FreqAI
+# has all required OHLCV for feature generation. Overrides:
+#  - SINGLE_PAIR: if set, restrict downloads to this one pair
+#  - PAIRS_FILE_OVERRIDE: if path set and exists, use that JSON file directly
+if [[ -n "${PAIRS_FILE_OVERRIDE:-}" && -f "${PAIRS_FILE_OVERRIDE}" ]]; then
+  PAIRS_FILE="${PAIRS_FILE_OVERRIDE}"
+  echo "[download-data] Using override pairs file: ${PAIRS_FILE}" >&2
+else
+  PAIRS_FILE=$(mktemp)
+  if [[ -n "${SINGLE_PAIR:-}" ]]; then
+    echo "[download-data] SINGLE_PAIR set → restricting downloads to: ${SINGLE_PAIR}" >&2
+    python3 - "$SINGLE_PAIR" >"$PAIRS_FILE" <<'PY'
+import json,sys
+pair=sys.argv[1]
+print(json.dumps([pair]))
+PY
+  else
+    python3 - "$FT_CONFIG" >"$PAIRS_FILE" <<'PY'
 import json,sys
 cfg_path=sys.argv[1]
 with open(cfg_path,'r',encoding='utf-8') as fh:
     cfg=json.load(fh)
 wl=cfg.get('exchange',{}).get('pair_whitelist',[])
 corr=cfg.get('freqai',{}).get('feature_parameters',{}).get('include_corr_pairlist',[])
-pairs=sorted(set(wl+corr))
+pairs=sorted(set((wl or []) + (corr or [])))
 print(json.dumps(pairs))
 PY
+  fi
+fi
 
-echo "[download-data] Pairs (whitelist + correlated):" >&2
+echo "[download-data] Pairs:" >&2
 python3 - "$PAIRS_FILE" <<'PY'
 import json,sys
 pairs=json.load(open(sys.argv[1],'r',encoding='utf-8'))

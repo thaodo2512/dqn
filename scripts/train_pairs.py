@@ -53,7 +53,7 @@ def shell(cmd: List[str]) -> int:
     return subprocess.call(cmd)
 
 
-def prefetch_data(compose: Path, service: str, host_cfg: Path, timerange: str) -> int:
+def prefetch_data(compose: Path, service: str, host_cfg: Path, timerange: str, pairs: List[str]) -> int:
     cfg_dir = host_cfg.parent.resolve()
     cfg_base = host_cfg.name
     # Run download script using the external config (bind-mounted read-only)
@@ -66,6 +66,11 @@ def prefetch_data(compose: Path, service: str, host_cfg: Path, timerange: str) -
         "--rm",
         "-e",
         f"TIMERANGE={timerange}",
+    ]
+    if len(pairs) == 1:
+        # Hint to the downloader to restrict to a single pair
+        cmd.extend(["-e", f"SINGLE_PAIR={pairs[0]}"])
+    cmd.extend([
         "-e",
         f"FT_CONFIG=/freqtrade/user_config/{cfg_base}",
         "-v",
@@ -74,7 +79,7 @@ def prefetch_data(compose: Path, service: str, host_cfg: Path, timerange: str) -
         "bash",
         "-lc",
         "bash tools/download_data.sh",
-    ]
+    ])
     return shell(cmd)
 
 
@@ -344,7 +349,7 @@ def main(argv: Iterable[str]) -> int:
 
     # Prefetch OHLCV data using the external config
     print("[train_pairs] Prefetching historical data ...")
-    rc = prefetch_data(compose, args.service, host_cfg, args.timerange)
+    rc = prefetch_data(compose, args.service, host_cfg, args.timerange, pairs)
     if rc != 0:
         print(f"[train_pairs] Prefetch failed with code {rc}", file=sys.stderr)
         return rc
