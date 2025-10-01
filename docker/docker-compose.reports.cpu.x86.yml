@@ -37,16 +37,7 @@ services:
             freqtrade plot-profit --config "$FT_CONFIG" --result "$RESULTS_JSON"
           fi
           if [ -z "$PAIR" ]; then
-            PAIR="$(python3 - <<'PY'
-import json,sys
-try:
-    cfg=json.load(open('user_data/config.json'))
-    wl=cfg.get('exchange',{}).get('pair_whitelist') or []
-    print(wl[0] if wl else(''))
-except Exception:
-    print('')
-PY
-            )"
+            PAIR="$(python3 -c "import json,sys; cfg=json.load(open('user_data/config.json')); wl=cfg.get('exchange',{}).get('pair_whitelist') or []; print(wl[0] if wl else '')")"
           fi
           if [ -n "$PAIR" ]; then
             freqtrade plot-dataframe --config "$FT_CONFIG" --strategy-path user_data/strategies --strategy MyRLStrategy -p "$PAIR" --timerange "$TIMERANGE" || true
