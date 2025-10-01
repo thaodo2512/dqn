@@ -25,6 +25,13 @@ All notable changes to this project will be documented in this file.
   waiting for locks to clear and retrying `apt-get update/install` steps. Prevents
   failures like "Could not get lock /var/lib/dpkg/lock-frontend" on fresh VMs.
 
+## [0.2.35] - 2025-10-01
+### Improved
+- `scripts/gcp_one_pair_train.sh`: add `--debug` to stream verbose SSH and enable
+  remote `set -x`. Enrich apt wait loop with active unit/process diagnostics every
+  10 iterations. Use SSH `-v` during readiness/install when debugging. This makes
+  first‑boot issues easier to diagnose in real time.
+
 ## [0.2.30] - 2025-10-01
 ### Added
 - One-pair GCP trainer script:

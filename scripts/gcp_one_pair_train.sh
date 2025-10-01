@@ -28,6 +28,7 @@ set -euo pipefail
 #   --use-iap             SSH via IAP tunnel instead of external IP
 #   --apt-timeout SECS    Max seconds to wait for apt/dpkg to be idle before forcing (default: 600)
 #   --force-apt           After timeout, stop apt services and proceed (dangerous but pragmatic)
+#   --debug               Stream verbose SSH and enable remote set -x for easier debugging
 #
 # Outputs:
 #   gcp-output/<instance-name>/freqaimodels(.tgz), logs(.tgz) fetched locally.
@@ -50,6 +51,7 @@ CLEANUP=${CLEANUP:-0}
 USE_IAP=${USE_IAP:-0}
 APT_TIMEOUT=${APT_TIMEOUT:-600}
 FORCE_APT=${FORCE_APT:-0}
+DEBUG=${DEBUG:-0}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -66,6 +68,7 @@ while [[ $# -gt 0 ]]; do
     --use-iap) USE_IAP=1; shift;;
     --apt-timeout) APT_TIMEOUT="$2"; shift 2;;
     --force-apt) FORCE_APT=1; shift;;
+    --debug) DEBUG=1; shift;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown arg: $1" >&2; usage; exit 2;;
   esac
@@ -129,9 +132,12 @@ echo "[onepair] Waiting for SSH to be ready ..."
 IAP_OPT=""
 if [[ "$USE_IAP" == "1" ]]; then IAP_OPT="--tunnel-through-iap"; fi
 SSH_READY=0
+SSH_VERBOSE_ARG=""
+if [[ "$DEBUG" == "1" ]]; then SSH_VERBOSE_ARG="-- -v"; fi
+SSH_BASE_OPTS="-o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 for i in {1..30}; do
   if gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT \
-      --command "echo ready" -- -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null >/dev/null 2>&1; then
+      --command "echo ready" -- $SSH_BASE_OPTS ${DEBUG:+-v}; then
     SSH_READY=1; break
   fi
   echo "  attempt $i/30: ssh not ready yet; sleeping 5s ..."
@@ -147,6 +153,7 @@ echo "[onepair] Installing Docker on the VM ..."
 INSTALL_DOCKER='set -euo pipefail; \
   # Ensure cloud-init completed to avoid racing its apt jobs
   if command -v cloud-init >/dev/null 2>&1; then \
+    echo "[vm] cloud-init status:"; sudo cloud-init status || true; \
     sudo cloud-init status --wait || true; \
   fi; \
   wait_apt() { \
@@ -160,7 +167,12 @@ INSTALL_DOCKER='set -euo pipefail; \
           systemctl is-active --quiet apt-daily-upgrade.service || \
           systemctl is-active --quiet unattended-upgrades.service \
         )); then \
-        echo "[vm] apt/dpkg busy; retry $i/__APT_ITERS__"; sleep 5; \
+        echo "[vm] apt/dpkg busy; retry $i/__APT_ITERS__"; \
+        if [ $((i % 10)) -eq 1 ]; then \
+          echo "[vm] active units:"; systemctl list-units --type=service | grep -E "apt-daily|unattended" || true; \
+          echo "[vm] processes:"; ps -C apt-get,dpkg -o pid,cmd --no-headers || true; \
+        fi; \
+        sleep 5; \
       else \
         sudo dpkg --configure -a || true; return 0; \
       fi; \
@@ -169,6 +181,7 @@ INSTALL_DOCKER='set -euo pipefail; \
     return 2; \
   }; \
   export DEBIAN_FRONTEND=noninteractive; \
+  if [ "__DEBUG__" = "1" ]; then set -x; fi; \
   if ! wait_apt; then \
     if [ "__FORCE_APT__" = "1" ]; then \
       echo "[vm] forcing apt: stopping apt-daily/unattended services"; \
@@ -196,7 +209,8 @@ ITERS=$(( APT_TIMEOUT / 5 ))
 [[ $ITERS -lt 1 ]] && ITERS=1
 REMOTE_INSTALL=${INSTALL_DOCKER/__APT_ITERS__/$ITERS}
 REMOTE_INSTALL=${REMOTE_INSTALL/__FORCE_APT__/$FORCE_APT}
-gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$REMOTE_INSTALL"
+REMOTE_INSTALL=${REMOTE_INSTALL/__DEBUG__/$DEBUG}
+gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$REMOTE_INSTALL" ${DEBUG:+-- -v}
 
 ROOT_LOCAL=$(pwd)
 REPO_NAME=$(basename "$ROOT_LOCAL")
@@ -227,11 +241,11 @@ fi
 if [[ "$FRESH" == "1" ]]; then
   REMOTE_CMD+=" --fresh"
 fi
-gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$REMOTE_CMD"
+gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$REMOTE_CMD" ${DEBUG:+-- -v}
 
 echo "[onepair] Packaging artifacts on VM ..."
 PACK_CMD="set -euo pipefail; cd ~/${REPO_NAME} && mkdir -p output; rm -f output/freqaimodels.tgz || true; tar -C user_data -czf output/freqaimodels.tgz freqaimodels || true; rm -rf output/freqaimodels; if [[ -d user_data/freqaimodels ]]; then cp -r user_data/freqaimodels output/; fi; rm -f output/logs.tgz || true; tar -C user_data -czf output/logs.tgz logs || true; rm -rf output/logs; if [[ -d user_data/logs ]]; then cp -r user_data/logs output/; fi; echo '[onepair] Artifacts ready under: ' $(pwd)/output"
-gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$PACK_CMD"
+gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$PACK_CMD" ${DEBUG:+-- -v}
 
 LOCAL_OUT_DIR="gcp-output/${INSTANCE_NAME}"
 mkdir -p "$LOCAL_OUT_DIR"
