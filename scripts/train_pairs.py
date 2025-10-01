@@ -150,13 +150,13 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         "--concurrency",
         type=int,
         default=0,
-        help="Max containers in parallel (default: auto ~= cores/threads)",
+        help="Max containers in parallel (default: auto from available CPUs)",
     )
     p.add_argument(
         "--threads",
         type=int,
-        default=4,
-        help="Threads per container for BLAS/NumExpr/Torch (default: 4)",
+        default=0,
+        help="Threads per container for BLAS/NumExpr/Torch (default: auto)",
     )
     p.add_argument(
         "--timerange",
@@ -170,11 +170,67 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
     )
     return p.parse_args(list(argv))
 
+def _parse_cpuset(cpuset: str) -> int:
+    total = 0
+    for part in (cpuset or "").split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            a, b = part.split("-", 1)
+            try:
+                start = int(a); end = int(b)
+            except ValueError:
+                continue
+            if end >= start:
+                total += (end - start + 1)
+        else:
+            try:
+                int(part)
+                total += 1
+            except ValueError:
+                continue
+    return total
 
-def compute_default_concurrency(threads: int) -> int:
-    cores = os.cpu_count() or 1
+
+def detect_logical_cpus() -> int:
+    try:
+        return len(os.sched_getaffinity(0))  # type: ignore[attr-defined]
+    except Exception:
+        pass
+    # cgroup v1
+    try:
+        with open("/sys/fs/cgroup/cpuset/cpuset.cpus", "r", encoding="utf-8") as fh:
+            n = _parse_cpuset(fh.read().strip())
+            if n > 0:
+                return n
+    except Exception:
+        pass
+    # cgroup v2
+    for path in ("/sys/fs/cgroup/cpuset.cpus", "/sys/fs/cgroup/cpuset.cpus.effective"):
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                n = _parse_cpuset(fh.read().strip())
+                if n > 0:
+                    return n
+        except Exception:
+            continue
+    return max(1, os.cpu_count() or 1)
+
+
+def choose_threads(cpus: int) -> int:
+    if cpus <= 4:
+        return 1
+    if cpus <= 8:
+        return 2
+    if cpus <= 24:
+        return 4
+    return 6
+
+
+def compute_default_concurrency(threads: int, cpus: int | None = None) -> int:
+    cores = int(cpus or detect_logical_cpus())
     k = max(1, cores // max(1, threads))
-    # Be conservative; cap to 16 by default
     return max(1, min(k, 16))
 
 
@@ -195,8 +251,10 @@ def main(argv: Iterable[str]) -> int:
         print("no pairs to train", file=sys.stderr)
         return 2
 
-    conc = args.concurrency or compute_default_concurrency(args.threads)
-    print(f"[train_pairs] Using concurrency={conc}, threads/container={args.threads}")
+    cpus = detect_logical_cpus()
+    threads = args.threads or choose_threads(cpus)
+    conc = args.concurrency or compute_default_concurrency(threads, cpus)
+    print(f"[train_pairs] Detected CPUs={cpus} -> threads/container={threads}, concurrency={conc}")
     print(f"[train_pairs] Total pairs: {len(pairs)}")
 
     # Prefetch OHLCV data using the external config
@@ -216,7 +274,7 @@ def main(argv: Iterable[str]) -> int:
                 args.service,
                 host_cfg,
                 pair,
-                args.threads,
+                threads,
                 args.timerange,
             ): pair
             for pair in pairs
@@ -244,4 +302,3 @@ def main(argv: Iterable[str]) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
-
