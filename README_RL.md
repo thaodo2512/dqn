@@ -145,8 +145,10 @@ Artifacts
 - If `GCS_BUCKET` is set, the same folder uploads to `gs://.../<instance-name>/`.
 
 Jetson inference
-- Copy models to Jetson: `rsync -av gcp-output/<instance-name>/freqaimodels/ /path/to/jetson/repo/user_data/freqaimodels/`
-- Ensure `user_data/config.json` `freqai.identifier` points to the trained model.
+- Install latest models into this repo: `scripts/install_gcp_models.sh`
+- Install from a specific run and set identifier: `scripts/install_gcp_models.sh --source gcp-output/<instance-name> --identifier <your-id>`
+- Sync to Jetson automatically: `scripts/install_gcp_models.sh --jetson-dest user@jetson:/path/to/repo --identifier <your-id>`
+- Ensure `user_data/config.json` `freqai.identifier` points to the trained model (the installer can set this).
 - Start dry-run/live on Jetson: `docker compose -f docker/docker-compose.jetson.yml up -d`
 
 ## Jetson Inference (Saved Models)
