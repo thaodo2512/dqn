@@ -11,10 +11,6 @@ services:
     gpus: all
     restart: "no"
     environment:
-      FT_CONFIG: ${FT_CONFIG:-user_data/config.json}
-      RESULTS_JSON: ${RESULTS_JSON:-user_data/backtest_results/latest.json}
-      PAIR: "${PAIR:-BTC/USDT:USDT}"
-      TIMERANGE: ${TIMERANGE:-20240101-20250930}
       MPLBACKEND: Agg
     volumes:
       - ../user_data:/freqtrade/user_data
@@ -24,9 +20,41 @@ services:
       - -lc
       - |
           set -euo pipefail
-          echo '[reports] Using results: ' "$RESULTS_JSON"
-          freqtrade plot-profit --config "$FT_CONFIG" --results "$RESULTS_JSON"
-          freqtrade plot-dataframe --config "$FT_CONFIG" --strategy-path user_data/strategies --strategy MyRLStrategy -p "$PAIR" --timerange "$TIMERANGE" || true
+          FT_CONFIG="${FT_CONFIG:-user_data/config.json}"
+          TIMERANGE="${TIMERANGE:-20240101-20250930}"
+          PAIR="${PAIR:-}"
+          RESULTS_JSON="${RESULTS_JSON:-}"
+          if [ -z "$RESULTS_JSON" ]; then
+            RESULTS_JSON="$(ls -1t user_data/backtest_results/*.json 2>/dev/null | head -n1 || true)"
+          fi
+          echo "[reports] Using config: $FT_CONFIG"
+          echo "[reports] Using results: $RESULTS_JSON"
+          if [ -z "$RESULTS_JSON" ] || [ ! -f "$RESULTS_JSON" ]; then
+            echo "[reports] No results JSON found under user_data/backtest_results/" >&2
+            exit 2
+          fi
+          if freqtrade plot-profit --help 2>/dev/null | grep -q -- "--results"; then
+            freqtrade plot-profit --config "$FT_CONFIG" --results "$RESULTS_JSON"
+          else
+            freqtrade plot-profit --config "$FT_CONFIG" "$RESULTS_JSON" || \
+            freqtrade plot-profit --config "$FT_CONFIG" --results-file "$RESULTS_JSON" || \
+            freqtrade plot-profit --config "$FT_CONFIG" --result "$RESULTS_JSON"
+          fi
+          if [ -z "$PAIR" ]; then
+            PAIR="$(python3 - <<'PY'
+import json,sys
+try:
+    cfg=json.load(open('user_data/config.json'))
+    wl=cfg.get('exchange',{}).get('pair_whitelist') or []
+    print(wl[0] if wl else(''))
+except Exception:
+    print('')
+PY
+            )"
+          fi
+          if [ -n "$PAIR" ]; then
+            freqtrade plot-dataframe --config "$FT_CONFIG" --strategy-path user_data/strategies --strategy MyRLStrategy -p "$PAIR" --timerange "$TIMERANGE" || true
+          fi
           echo '[reports] HTML saved under user_data/plot/'
 
   # Web UI on Jetson (open http://localhost:8080)
