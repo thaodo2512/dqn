@@ -58,6 +58,7 @@ class MyFiveActionEnv(Base5ActionRLEnv):
         drawdown_factor = float(rw.get("drawdown_factor", 0.05))
         reward_clip = float(rw.get("reward_clip", 5.0))
         churn_window = int(rw.get("churn_window_steps", 50))
+        debug_log = bool(rw.get("debug_log", False) or rw.get("reward_debug", False))
 
         # Profit ratio from current open trade (unrealized PnL proxy)
         trade_profit = (
@@ -70,15 +71,18 @@ class MyFiveActionEnv(Base5ActionRLEnv):
             Positions.Short,
         )
         prev_profit = float(getattr(self, "_prev_trade_profit", 0.0))
-        reward = (trade_profit - prev_profit) if in_position else 0.0
+        pnl_delta = (trade_profit - prev_profit) if in_position else 0.0
+        reward = pnl_delta
 
         # Apply fees only on transitions based on the position BEFORE the action
         is_entry = action in (Actions.Long_enter.value, Actions.Short_enter.value)
         is_exit = action in (Actions.Long_exit.value, Actions.Short_exit.value)
         prev_pos = getattr(self, "_prev_position", Positions.Neutral)
 
+        fee_applied = 0.0
         if prev_pos == Positions.Neutral and is_entry:
-            reward -= fee_rate  # entry fee once
+            fee_applied = fee_rate
+            reward -= fee_applied  # entry fee once
             # Track churn: record this entry at current step, prune outside window
             step_idx = int(getattr(self, "_step_idx", 0))
             entries = list(getattr(self, "trade_entries", []))
@@ -88,9 +92,11 @@ class MyFiveActionEnv(Base5ActionRLEnv):
             self.trade_entries = entries
             self.trade_count_in_window = len(entries)
         elif prev_pos in (Positions.Long, Positions.Short) and is_exit:
-            reward -= fee_rate  # exit fee once
+            fee_applied = fee_rate
+            reward -= fee_applied  # exit fee once
 
         # Drawdown penalty within a trade: penalize distance from peak
+        dd_penalty = 0.0
         if in_position:
             peak = float(getattr(self, "_trade_peak_profit", 0.0))
             peak = max(peak, trade_profit)
@@ -98,7 +104,8 @@ class MyFiveActionEnv(Base5ActionRLEnv):
             self._trade_peak_profit = peak
             self.drawdown = dd
             if dd > 0.05:
-                reward -= (drawdown_factor * dd)
+                dd_penalty = (drawdown_factor * dd)
+                reward -= dd_penalty
         else:
             # Reset per-trade trackers when flat
             self._trade_peak_profit = 0.0
@@ -106,8 +113,10 @@ class MyFiveActionEnv(Base5ActionRLEnv):
             self._prev_trade_profit = 0.0
 
         # Churn penalty when too many entries in the window
+        churn_pen_applied = 0.0
         if int(getattr(self, "trade_count_in_window", 0)) > 5:
-            reward -= churn_penalty
+            churn_pen_applied = churn_penalty
+            reward -= churn_pen_applied
 
         # Optional invalid action penalty if helper exists
         try:
@@ -121,6 +130,32 @@ class MyFiveActionEnv(Base5ActionRLEnv):
             reward = reward_clip
         elif reward < -reward_clip:
             reward = -reward_clip
+
+        # Optional debug logging of reward components
+        if debug_log and logger.isEnabledFor(logging.DEBUG):
+            try:
+                step_idx = int(getattr(self, "_step_idx", 0))
+                cur_pos = getattr(self, "_position", Positions.Neutral)
+                pair = getattr(self, "pair", "N/A")
+                logger.debug(
+                    "reward_debug step=%s pair=%s action=%s prev_pos=%s pos=%s pnl=%.6f dpnl=%.6f fee=%.6f churn=%d churn_pen=%.6f dd=%.6f dd_pen=%.6f reward=%.6f",
+                    step_idx,
+                    pair,
+                    action,
+                    getattr(prev_pos, "name", str(prev_pos)),
+                    getattr(cur_pos, "name", str(cur_pos)),
+                    trade_profit,
+                    pnl_delta,
+                    fee_applied,
+                    int(getattr(self, "trade_count_in_window", 0)),
+                    churn_pen_applied,
+                    float(getattr(self, "drawdown", 0.0)),
+                    dd_penalty,
+                    reward,
+                )
+            except Exception:
+                # Never let logging break training
+                pass
 
         # Persist previous profit for delta on next step
         if in_position:
