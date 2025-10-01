@@ -261,10 +261,19 @@ def main(argv: Iterable[str]) -> int:
         print(f"compose file not found: {compose}", file=sys.stderr)
         return 2
 
-    host_cfg = Path(args.config)
-    if not host_cfg.exists():
-        print(f"config not found: {host_cfg}", file=sys.stderr)
-        return 2
+    # Resolve config path: prefer user-provided, otherwise fall back to user_data/config.json
+    cfg_in = Path(args.config).expanduser()
+    if cfg_in.exists():
+        host_cfg = cfg_in
+    else:
+        # Fallback only when using the default missing path
+        fallback = Path("user_data/config.json")
+        if args.config == "user_config/config.json" and fallback.exists():
+            print(f"[train_pairs] Falling back to {fallback} (default config not found)")
+            host_cfg = fallback
+        else:
+            print(f"config not found: {cfg_in}", file=sys.stderr)
+            return 2
 
     pairs = args.pairs or read_pairs_from_config(host_cfg)
     if not pairs:
