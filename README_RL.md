@@ -121,6 +121,34 @@ Notes
 - The Web UI reads credentials from `user_data/config.json` (API server section). The
   `webserver` command runs regardless of the `enabled` flag.
 
+## GCP End-to-End Training
+Train on a Google Cloud x86 VM, then copy models back for Jetson inference.
+
+Prerequisites
+- `gcloud` CLI authenticated (`gcloud auth login`) and a project selected.
+- Run from the repo root.
+
+Create VM, train, fetch artifacts (local), optional upload to GCS
+- Minimal:
+  `PROJECT_ID="<your-project>" ZONE="asia-south1-c" ./scripts/gcp_e2e_train.sh`
+- Tuned threads/concurrency and upload to GCS:
+  `PROJECT_ID="<your-project>" ZONE="asia-south1-c" THREADS=2 CONCURRENCY=8 TIMERANGE=20240101-20250930 GCS_BUCKET="gs://your-bucket/dqn-jobs" CLEANUP=true ./scripts/gcp_e2e_train.sh`
+
+Environment options
+- `MACHINE_TYPE` (default `c4d-standard-16`), `DISK_SIZE_GB` (default `200`), `DISK_TYPE` (default `pd-ssd`)
+- `THREADS`, `CONCURRENCY`, `TIMERANGE`, `ID_PREFIX`, `ID_SUFFIX`, `FRESH`
+- `GCS_BUCKET` (optional `gs://bucket/prefix`) to upload artifacts
+- `CLEANUP=true|false` to delete the VM after run (default true)
+
+Artifacts
+- Saved to `gcp-output/<instance-name>/` locally (e.g., `freqaimodels.tgz`, `freqaimodels/`).
+- If `GCS_BUCKET` is set, the same folder uploads to `gs://.../<instance-name>/`.
+
+Jetson inference
+- Copy models to Jetson: `rsync -av gcp-output/<instance-name>/freqaimodels/ /path/to/jetson/repo/user_data/freqaimodels/`
+- Ensure `user_data/config.json` `freqai.identifier` points to the trained model.
+- Start dry-run/live on Jetson: `docker compose -f docker/docker-compose.jetson.yml up -d`
+
 ## Action Mapping & Reward
 - `0`: hold
 - `1`: enter long → `enter_long = 1`
