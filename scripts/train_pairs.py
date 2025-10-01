@@ -76,6 +76,92 @@ def prefetch_data(compose: Path, service: str, host_cfg: Path) -> int:
     return shell(cmd)
 
 
+def launch_one_pair(
+    compose: Path,
+    service: str,
+    host_cfg: Path,
+    pair: str,
+    threads: int,
+    timerange: str,
+    reward_debug: bool,
+    id_prefix: str,
+    id_suffix: str,
+    fresh: bool,
+) -> int:
+    cfg_dir = host_cfg.parent.resolve()
+    cfg_base = host_cfg.name
+    sname = safe_name(pair)
+    ident = f"{id_prefix}dqn-{sname}{id_suffix}"
+
+    # Create overlay configs on host (mounted into container via compose)
+    ud = Path("user_data")
+    ud.mkdir(exist_ok=True)
+
+    cpu_dev_path = ud / "cpu-device.json"
+    if not cpu_dev_path.exists():
+        cpu_dev_path.write_text(json.dumps({
+            "freqai": {"rl_config": {"hyperparams": {"device": "cpu"}}}
+        }))
+
+    id_path = ud / f"id-{sname}.json"
+    id_path.write_text(json.dumps({"freqai": {"identifier": ident}}))
+
+    pair_cfg_path = ud / f"pairs-{sname}.json"
+    pair_cfg_path.write_text(json.dumps({"exchange": {"pair_whitelist": [pair]}}))
+
+    debug_cfg_opt = ""
+    if reward_debug:
+        dbg_path = ud / f"reward-debug-{sname}.json"
+        dbg_path.write_text(json.dumps({
+            "freqai": {"log_level": "DEBUG", "rl_config": {"reward_kwargs": {"debug_log": True}}}
+        }))
+        debug_cfg_opt = f" --config {dbg_path}"
+
+    restore_cfg_opt = ""
+    if fresh:
+        rst_path = ud / f"restore-false-{sname}.json"
+        rst_path.write_text(json.dumps({"freqai": {"restore_best_model": False}}))
+        restore_cfg_opt = f" --config {rst_path}"
+
+    inner = (
+        "mkdir -p user_data/logs && "
+        + "freqtrade backtesting "
+        + f"--config /freqtrade/user_config/{shlex.quote(cfg_base)} "
+        + f"--config user_data/cpu-device.json --config user_data/id-{sname}.json --config {pair_cfg_path}{debug_cfg_opt}{restore_cfg_opt} "
+        + "--strategy-path user_data/strategies --strategy MyRLStrategy "
+        + "--freqaimodel ReinforcementLearner "
+        + f"-p {shlex.quote(pair)} "
+        + f"--timerange {shlex.quote(timerange)} -vv "
+        + f"--logfile user_data/logs/train-{sname}.log"
+    )
+
+    cmd = [
+        "docker",
+        "compose",
+        "-f",
+        str(compose),
+        "run",
+        "--rm",
+        "-e",
+        f"OMP_NUM_THREADS={threads}",
+        "-e",
+        f"OPENBLAS_NUM_THREADS={threads}",
+        "-e",
+        f"MKL_NUM_THREADS={threads}",
+        "-e",
+        f"NUMEXPR_MAX_THREADS={threads}",
+        "-e",
+        f"TORCH_NUM_THREADS={threads}",
+        "-v",
+        f"{cfg_dir}:/freqtrade/user_config:ro",
+        service,
+        "bash",
+        "-lc",
+        inner,
+    ]
+    return shell(cmd)
+
+
 def train_one_pair(
     compose: Path,
     service: str,
@@ -339,7 +425,7 @@ def main(argv: Iterable[str]) -> int:
     with ThreadPoolExecutor(max_workers=conc) as ex:
         futs = {
             ex.submit(
-                train_one_pair,
+                launch_one_pair,
                 compose,
                 args.service,
                 host_cfg,
