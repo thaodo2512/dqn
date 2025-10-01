@@ -37,6 +37,28 @@ All notable changes to this project will be documented in this file.
 ### Docs
 - Updated `README_RL.md` and `docs/freqai-training.md` with x86 CPU-only commands.
 
+## [0.2.20] - 2025-10-01
+### Added
+- RL reward overhaul in `MyFiveActionEnv`:
+  - Reward = delta PnL when in position; 0 when flat
+  - Apply fees only on entry/exit; sliding-window churn and per-trade drawdown penalties
+  - Reward component debug logging behind `reward_kwargs.debug_log` / `reward_debug`
+  - ATR feature added; `startup_candle_count` increased to 200
+- Multi-container trainer: `scripts/train_pairs.py`
+  - Bounded parallel per-pair containers; auto-detect CPUs → threads/concurrency
+  - Per-container overlays for CPU device, identifier, single-pair whitelist
+  - `--reward-debug` flag to enable detailed reward logs
+  - `--id-prefix` / `--id-suffix` to version identifiers; `--fresh` to disable restore
+  - Prints detected CPUs, chosen threads/concurrency, and pair list
+### Changed
+- Trainer now forces single-pair runs by overlaying `exchange.pair_whitelist`
+- Trainer falls back to `user_data/config.json` when default `user_config/config.json` is missing
+### Fixed
+- x86 Dockerfile uses `libopenblas-dev` (ATLAS removed in Debian trixie)
+- Trainer writes overlay JSON on host (avoids fragile echo quoting) and mounts a fallback `.overlays/` dir if `user_data/` is not writable
+- Trainer passes container-visible paths for debug/restore overlays; auto-unique identifier when `--fresh` without suffix
+- Removed deprecated `train_one_pair()`; use `launch_one_pair()` only
+
 ## [0.2.6] - 2025-09-30
 ### Fixed
 - Set a safer default `TIMERANGE` in the training compose to `20240215-20250930` to
