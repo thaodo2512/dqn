@@ -13,7 +13,7 @@ services:
     environment:
       FT_CONFIG: ${FT_CONFIG:-user_data/config.json}
       RESULTS_JSON: ${RESULTS_JSON:-user_data/backtest_results/latest.json}
-      PAIR: ${PAIR:-BTC/USDT:USDT}
+      PAIR: "${PAIR:-BTC/USDT:USDT}"
       TIMERANGE: ${TIMERANGE:-20240101-20250930}
       MPLBACKEND: Agg
     volumes:
@@ -53,4 +53,3 @@ services:
       - ../user_data:/freqtrade/user_data
     working_dir: /freqtrade
     command: ["bash", "-lc", "freqtrade webserver --config \"$FT_CONFIG\""]
-
