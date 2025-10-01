@@ -92,6 +92,11 @@ def launch_one_pair(
     cfg_dir = host_cfg.parent.resolve()
     cfg_base = host_cfg.name
     sname = safe_name(pair)
+    # Auto-unique identifier on --fresh if no suffix provided
+    if fresh and not id_suffix:
+        from datetime import datetime
+        auto = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+        id_suffix = f"-fresh-{auto}"
     ident = f"{id_prefix}dqn-{sname}{id_suffix}"
 
     # Create overlay configs on host (mounted into container via compose)
@@ -110,23 +115,26 @@ def launch_one_pair(
     pair_cfg_path = ov_host / f"pairs-{sname}.json"
     pair_cfg_path.write_text(json.dumps({"exchange": {"pair_whitelist": [pair]}}))
 
-    debug_cfg_opt = ""
+    # Write debug and restore overlays if requested
+    dbg_path = None
     if reward_debug:
         dbg_path = ov_host / f"reward-debug-{sname}.json"
         dbg_path.write_text(json.dumps({
             "freqai": {"log_level": "DEBUG", "rl_config": {"reward_kwargs": {"debug_log": True}}}
         }))
-        debug_cfg_opt = f" --config {dbg_path}"
 
-    restore_cfg_opt = ""
+    rst_path = None
     if fresh:
         rst_path = ov_host / f"restore-false-{sname}.json"
         rst_path.write_text(json.dumps({"freqai": {"restore_best_model": False}}))
-        restore_cfg_opt = f" --config {rst_path}"
 
     # Container-visible overlay directory
     use_user_data_mount = (ov_host.resolve() == Path("user_data").resolve())
     ov_container = "/freqtrade/user_data" if use_user_data_mount else "/freqtrade/overlays"
+
+    # Build container-visible overlay paths
+    debug_cfg_opt = f" --config {ov_container}/reward-debug-{sname}.json" if dbg_path else ""
+    restore_cfg_opt = f" --config {ov_container}/restore-false-{sname}.json" if rst_path else ""
 
     inner = (
         "mkdir -p user_data/logs && "
