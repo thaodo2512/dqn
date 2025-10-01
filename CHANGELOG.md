@@ -13,6 +13,12 @@ All notable changes to this project will be documented in this file.
 - `scripts/gcp_one_pair_train.sh`: add robust SSH readiness wait with retries and
   optional `--use-iap` tunneling. Fixes early "connection refused" on fresh boots.
 
+## [0.2.33] - 2025-10-01
+### Improved
+- `scripts/gcp_one_pair_train.sh`: speed up transfer by tarring the repo locally,
+  copying a single archive to the VM, extracting it there, and removing the archive.
+  Replaces recursive file copy which was slow for many small files.
+
 ## [0.2.30] - 2025-10-01
 ### Added
 - One-pair GCP trainer script:

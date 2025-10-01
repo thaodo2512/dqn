@@ -150,8 +150,19 @@ gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_
 ROOT_LOCAL=$(pwd)
 REPO_NAME=$(basename "$ROOT_LOCAL")
 
-echo "[onepair] Copying repo to VM ..."
-gcloud compute scp --recurse "$ROOT_LOCAL" "$INSTANCE_NAME":~/. --zone="$ZONE" --project="$PROJECT_ID" ${USE_IAP:+--tunnel-through-iap}
+echo "[onepair] Packaging repo and copying tarball to VM ..."
+# Create a tar.gz of the current repo, excluding VCS and common large/temp dirs
+TMP_TAR=$(mktemp -p "${TMPDIR:-/tmp}" "repo_${REPO_NAME}_XXXXXXXX.tar.gz")
+tar -C "$ROOT_LOCAL" \
+    --exclude-vcs --exclude='.git' --exclude='gcp-output' --exclude='runs' --exclude='artifacts' \
+    --exclude='__pycache__' --exclude='*.pyc' \
+    -czf "$TMP_TAR" .
+gcloud compute scp "$TMP_TAR" "$INSTANCE_NAME":~/"${REPO_NAME}.tar.gz" --zone="$ZONE" --project="$PROJECT_ID" ${USE_IAP:+--tunnel-through-iap}
+rm -f "$TMP_TAR"
+
+echo "[onepair] Extracting repo on VM ..."
+gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT \
+  --command "rm -rf ~/${REPO_NAME} && mkdir -p ~/${REPO_NAME} && tar -xzf ~/${REPO_NAME}.tar.gz -C ~/${REPO_NAME} && rm -f ~/${REPO_NAME}.tar.gz"
 
 echo "[onepair] Building CPU training image and running single-pair training ..."
 REMOTE_RUN=(
