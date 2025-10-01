@@ -114,3 +114,71 @@ python tools/check_data_coverage.py \
 ```
 The checker uses `freqtrade list-data --show-timerange` under the hood and exits non‑zero
 if coverage is insufficient, listing the pairs/timeframes that need earlier data.
+
+## Cloud → Jetson Workflow (GCP)
+Train on an x86 VM in Google Cloud, fetch artifacts locally (or to GCS), and run inference on Jetson.
+
+### Local Orchestrator
+Run the end‑to‑end helper from the repo root; it creates a VM, installs Docker, copies the repo, runs training, fetches artifacts, optionally uploads to GCS, and cleans up.
+
+```bash
+# Minimal (uses Ubuntu 22.04 LTS image family)
+PROJECT_ID="<your-project>" ZONE="asia-south1-c" \
+  ./scripts/gcp_e2e_train.sh
+
+# Tuned (16 vCPU VM → threads=2, concurrency=8), with artifact upload to GCS
+PROJECT_ID="<your-project>" ZONE="asia-south1-c" \
+  THREADS=2 CONCURRENCY=8 TIMERANGE=20240101-20250930 \
+  GCS_BUCKET="gs://your-bucket/dqn-jobs" CLEANUP=true \
+  ./scripts/gcp_e2e_train.sh
+```
+
+Defaults target `c4d-standard-16` and produce local artifacts under
+`gcp-output/<instance-name>/` (e.g., `freqaimodels.tgz`, `freqaimodels/`). If `GCS_BUCKET`
+is set, the same directory is uploaded to your bucket.
+
+### Remote Training Runner
+The orchestrator invokes `scripts/gcp_vm_run.sh` on the VM to build the training image,
+run bounded‑parallel training via `scripts/train_pairs.py`, and package artifacts under
+`output/` in the repo.
+
+Key knobs (defaults for a 16 vCPU VM):
+- `--threads 2` — per‑container BLAS/NumExpr/Torch threads
+- `--concurrency 8` — parallel containers (2 × 8 = 16 CPU threads)
+- `--timerange` — backtest timerange
+
+You can SSH to the VM and re‑run it manually if needed:
+```bash
+bash scripts/gcp_vm_run.sh --threads 2 --concurrency 8 --timerange 20240101-20250930
+```
+
+### Transfer to Jetson
+- Copy models to Jetson: `rsync -av gcp-output/<instance>/freqaimodels/ /path/to/jetson/repo/user_data/freqaimodels/`
+- Ensure `user_data/config.json` has `freqai.identifier` matching the model you want to serve and `restore_best_model: true`.
+
+## Jetson Inference with Saved Models
+Run inference on Jetson without retraining using the provided overlay and helper script.
+
+- Overlay: `user_data/infer-only.json` sets `train_cycles: 0`, `total_timesteps: 0`.
+- Helper: `scripts/run_inference_jetson.sh` wraps compose commands.
+
+Examples
+```bash
+# Backtest using saved models only (no training)
+./scripts/run_inference_jetson.sh backtest --timerange 20240801-20240901
+
+# Dry-run trading (foreground)
+./scripts/run_inference_jetson.sh trade
+
+# Background service (Web/API on 8080)
+./scripts/run_inference_jetson.sh trade --detach
+```
+
+Tips
+- Keep `freqtrade` and `stable-baselines3` versions aligned between training VM and Jetson (build both images from this repo).
+- For backtests on Jetson, ensure OHLCV coverage with `tools/download_data.sh` or the training compose prefetch.
+- To force CPU on Jetson, set `FORCE_CPU=1` (compose env) or override device to `cpu`.
+
+Troubleshooting
+- If a backtest starts training, confirm `user_data/infer-only.json` is applied and the `freqai.identifier` matches a model directory under `user_data/freqaimodels/`.
+- If plots are empty, regenerate reports via the reports compose or `scripts/report_latest.py` after a backtest.
