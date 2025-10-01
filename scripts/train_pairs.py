@@ -84,10 +84,14 @@ def train_one_pair(
     threads: int,
     timerange: str,
     reward_debug: bool,
+    id_prefix: str,
+    id_suffix: str,
+    fresh: bool,
 ) -> int:
     cfg_dir = host_cfg.parent.resolve()
     cfg_base = host_cfg.name
     sname = safe_name(pair)
+    ident = f"{id_prefix}dqn-{sname}{id_suffix}"
     # Build the in-container command: ensure logs dir, write CPU device override and identifier, run backtesting
     parts = [
         "mkdir -p user_data/logs",
@@ -109,12 +113,26 @@ def train_one_pair(
         )
         debug_cfg_opt = f" --config {dbg_path}"
 
+    # Ensure identifier reflects requested prefix/suffix (override previous file if present)
+    parts.append(
+        f"echo '{{\\"freqai\\":{{\\"identifier\\":\\"{ident}\\"}}}}' > user_data/id-{sname}.json"
+    )
+
+    # Optionally disable restore to force training from scratch
+    restore_cfg_opt = ""
+    if fresh:
+        rst_path = f"user_data/restore-false-{sname}.json"
+        parts.append(
+            f"echo '{{\\"freqai\\":{{\\"restore_best_model\\": false}}}}' > {rst_path}"
+        )
+        restore_cfg_opt = f" --config {rst_path}"
+
     inner = (
         " && ".join(parts)
         + " && "
         + "freqtrade backtesting "
         + f"--config /freqtrade/user_config/{shlex.quote(cfg_base)} "
-        + f"--config user_data/cpu-device.json --config user_data/id-{sname}.json --config {pair_cfg_path}{debug_cfg_opt} "
+        + f"--config user_data/cpu-device.json --config user_data/id-{sname}.json --config {pair_cfg_path}{debug_cfg_opt}{restore_cfg_opt} "
         + "--strategy-path user_data/strategies --strategy MyRLStrategy "
         + "--freqaimodel ReinforcementLearner "
         + f"-p {shlex.quote(pair)} "
@@ -192,6 +210,21 @@ def parse_args(argv: Iterable[str]) -> argparse.Namespace:
         "--reward-debug",
         action="store_true",
         help="Enable detailed reward component logging and set FreqAI log level to DEBUG",
+    )
+    p.add_argument(
+        "--id-prefix",
+        default="",
+        help="Optional prefix for freqai.identifier (default: empty)",
+    )
+    p.add_argument(
+        "--id-suffix",
+        default="",
+        help="Optional suffix for freqai.identifier (default: empty)",
+    )
+    p.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Train from scratch by disabling restore_best_model for this run",
     )
     return p.parse_args(list(argv))
 
@@ -314,6 +347,9 @@ def main(argv: Iterable[str]) -> int:
                 threads,
                 args.timerange,
                 bool(args.reward_debug),
+                str(args.id_prefix or ""),
+                str(args.id_suffix or ""),
+                bool(args.fresh),
             ): pair
             for pair in pairs
         }
