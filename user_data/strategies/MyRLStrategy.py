@@ -24,31 +24,108 @@ logger = logging.getLogger(__name__)
 
 
 class MyFiveActionEnv(Base5ActionRLEnv):
-    """Custom RL environment inheriting from Base5ActionRLEnv."""
+    """Custom RL environment inheriting from Base5ActionRLEnv.
 
-    def calculate_reward(self, action: int) -> float:
+    Changes vs. base:
+    - Reward uses delta PnL during open trades (no per-step fees).
+    - Fees applied only on entries/exits.
+    - Simple churn window (entry frequency) and per‑trade drawdown penalty.
+    """
+
+    # Gym/Gymnasium compatible reset signature varies across versions; accept pass‑through.
+    def reset(self, *args, **kwargs):  # type: ignore[override]
+        obs = super().reset(*args, **kwargs)
+        self._step_idx = 0
+        self._prev_position = getattr(self, "_position", Positions.Neutral)
+        self._prev_trade_profit = 0.0
+        self._trade_peak_profit = 0.0
+        self.drawdown = 0.0
+        self.trade_entries = []  # list[int] of step indices when entries occurred
+        self.trade_count_in_window = 0
+        return obs
+
+    def step(self, action: int):  # type: ignore[override]
+        # Capture position prior to applying the action
+        self._prev_position = getattr(self, "_position", Positions.Neutral)
+        self._step_idx = int(getattr(self, "_step_idx", 0)) + 1
+        return super().step(action)
+
+    def calculate_reward(self, action: int) -> float:  # noqa: C901
         # Pull reward parameters from config
         rw = self.config["freqai"]["rl_config"]["reward_kwargs"]
-        fee_rate = rw.get("fee_rate", 0.0007)
-        churn_penalty = rw.get("churn_penalty", 0.01)
-        drawdown_factor = rw.get("drawdown_factor", 0.05)
-        reward_clip = rw.get("reward_clip", 5.0)
+        fee_rate = float(rw.get("fee_rate", 0.0007))
+        churn_penalty = float(rw.get("churn_penalty", 0.01))
+        drawdown_factor = float(rw.get("drawdown_factor", 0.05))
+        reward_clip = float(rw.get("reward_clip", 5.0))
+        churn_window = int(rw.get("churn_window_steps", 50))
 
-        trade_profit = self.current_trade.get("profit_ratio", 0.0) if self.current_trade else 0.0
-        reward = trade_profit - (fee_rate * 2.0)
+        # Profit ratio from current open trade (unrealized PnL proxy)
+        trade_profit = (
+            float(self.current_trade.get("profit_ratio", 0.0)) if self.current_trade else 0.0
+        )
 
-        # Simple churn example (customize with your churn_window_steps if desired)
-        if getattr(self, "trade_count_in_window", 0) > 5:
+        # Base reward: delta PnL only when in a position; neutral yields 0
+        in_position = getattr(self, "_position", Positions.Neutral) in (
+            Positions.Long,
+            Positions.Short,
+        )
+        prev_profit = float(getattr(self, "_prev_trade_profit", 0.0))
+        reward = (trade_profit - prev_profit) if in_position else 0.0
+
+        # Apply fees only on transitions based on the position BEFORE the action
+        is_entry = action in (Actions.Long_enter.value, Actions.Short_enter.value)
+        is_exit = action in (Actions.Long_exit.value, Actions.Short_exit.value)
+        prev_pos = getattr(self, "_prev_position", Positions.Neutral)
+
+        if prev_pos == Positions.Neutral and is_entry:
+            reward -= fee_rate  # entry fee once
+            # Track churn: record this entry at current step, prune outside window
+            step_idx = int(getattr(self, "_step_idx", 0))
+            entries = list(getattr(self, "trade_entries", []))
+            entries.append(step_idx)
+            min_step = max(0, step_idx - churn_window)
+            entries = [t for t in entries if t >= min_step]
+            self.trade_entries = entries
+            self.trade_count_in_window = len(entries)
+        elif prev_pos in (Positions.Long, Positions.Short) and is_exit:
+            reward -= fee_rate  # exit fee once
+
+        # Drawdown penalty within a trade: penalize distance from peak
+        if in_position:
+            peak = float(getattr(self, "_trade_peak_profit", 0.0))
+            peak = max(peak, trade_profit)
+            dd = max(0.0, peak - trade_profit)
+            self._trade_peak_profit = peak
+            self.drawdown = dd
+            if dd > 0.05:
+                reward -= (drawdown_factor * dd)
+        else:
+            # Reset per-trade trackers when flat
+            self._trade_peak_profit = 0.0
+            self.drawdown = 0.0
+            self._prev_trade_profit = 0.0
+
+        # Churn penalty when too many entries in the window
+        if int(getattr(self, "trade_count_in_window", 0)) > 5:
             reward -= churn_penalty
 
-        # Drawdown penalty example
-        if getattr(self, "drawdown", 0.0) > 0.05:
-            reward -= float(drawdown_factor) * float(self.drawdown)
+        # Optional invalid action penalty if helper exists
+        try:
+            if hasattr(self, "_is_valid") and not self._is_valid(action):  # type: ignore[attr-defined]
+                reward = min(reward, -2.0)
+        except Exception:
+            pass
 
+        # Clip the final reward
         if reward > reward_clip:
             reward = reward_clip
         elif reward < -reward_clip:
             reward = -reward_clip
+
+        # Persist previous profit for delta on next step
+        if in_position:
+            self._prev_trade_profit = trade_profit
+
         return float(reward)
 
 
@@ -58,14 +135,17 @@ class MyRLStrategy(FreqaiStrategy):
     timeframe = "5m"
     can_short = True
     process_only_new_candles = True
-    startup_candle_count = 160
+    startup_candle_count = 200
 
     # Feature engineering over multiple timeframes/periods
     def feature_engineering_expand_all(
         self, dataframe: DataFrame, period: int, metadata: Dict, **kwargs
     ) -> DataFrame:
-        # Example: RSI over a period using pandas-ta
+        # Example features: RSI and ATR over a given period using pandas-ta
         dataframe[f"%-rsi_{period}"] = ta.rsi(dataframe["close"], length=period)
+        dataframe[f"%-atr_{period}"] = ta.atr(
+            high=dataframe["high"], low=dataframe["low"], close=dataframe["close"], length=period
+        )
         return dataframe
 
     # Minimal standard features for RL observations
