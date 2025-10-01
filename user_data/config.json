@@ -22,7 +22,21 @@
     },
     "pair_whitelist": [
       "BTC/USDT:USDT",
-      "ETH/USDT:USDT"
+      "ETH/USDT:USDT",
+      "SOL/USDT:USDT",
+      "XRP/USDT:USDT",
+      "BNB/USDT:USDT",
+      "DOGE/USDT:USDT",
+      "ADA/USDT:USDT",
+      "AVAX/USDT:USDT",
+      "SUI/USDT:USDT",
+      "LTC/USDT:USDT",
+      "DOT/USDT:USDT",
+      "AAVE/USDT:USDT",
+      "ENA/USDT:USDT",
+      "PEPE/USDT:USDT",
+      "NEAR/USDT:USDT",
+      "ONDO/USDT:USDT"
     ]
   },
   "pairlists": [

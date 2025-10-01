@@ -35,6 +35,11 @@ All notable changes to this project will be documented in this file.
 - `scripts/gcp_vm_run.sh` now packages per-container logs for local debugging:
   copies `user_data/logs/` to `output/logs/` and creates `output/logs.tgz`.
 
+## [0.2.26] - 2025-10-01
+### Changed
+- Updated default futures `pair_whitelist` in `user_data/config.json` to:
+  BTC, ETH, SOL, XRP, BNB, DOGE, ADA, AVAX, SUI, LTC, DOT, AAVE, ENA, PEPE, NEAR, ONDO (USDT‑M).
+
 ## [0.2.16] - 2025-10-01
 ### Changed
 - Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training
