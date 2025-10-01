@@ -16,10 +16,10 @@ services:
       - -lc
       - |
           set -euo pipefail
-          FT_CONFIG="${FT_CONFIG:-user_data/config.json}"
-          TIMERANGE="${TIMERANGE:-20240101-20250930}"
-          PAIR="${PAIR:-}"
-          RESULTS_JSON="${RESULTS_JSON:-}"
+          FT_CONFIG="$${FT_CONFIG:-user_data/config.json}"
+          TIMERANGE="$${TIMERANGE:-20240101-20250930}"
+          PAIR="$${PAIR:-}"
+          RESULTS_JSON="$${RESULTS_JSON:-}"
           if [ -z "$RESULTS_JSON" ]; then
             RESULTS_JSON="$(ls -1t user_data/backtest_results/*.json 2>/dev/null | head -n1 || true)"
           fi
