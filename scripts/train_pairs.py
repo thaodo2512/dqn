@@ -53,7 +53,7 @@ def shell(cmd: List[str]) -> int:
     return subprocess.call(cmd)
 
 
-def prefetch_data(compose: Path, service: str, host_cfg: Path) -> int:
+def prefetch_data(compose: Path, service: str, host_cfg: Path, timerange: str) -> int:
     cfg_dir = host_cfg.parent.resolve()
     cfg_base = host_cfg.name
     # Run download script using the external config (bind-mounted read-only)
@@ -64,6 +64,8 @@ def prefetch_data(compose: Path, service: str, host_cfg: Path) -> int:
         str(compose),
         "run",
         "--rm",
+        "-e",
+        f"TIMERANGE={timerange}",
         "-e",
         f"FT_CONFIG=/freqtrade/user_config/{cfg_base}",
         "-v",
@@ -342,7 +344,7 @@ def main(argv: Iterable[str]) -> int:
 
     # Prefetch OHLCV data using the external config
     print("[train_pairs] Prefetching historical data ...")
-    rc = prefetch_data(compose, args.service, host_cfg)
+    rc = prefetch_data(compose, args.service, host_cfg, args.timerange)
     if rc != 0:
         print(f"[train_pairs] Prefetch failed with code {rc}", file=sys.stderr)
         return rc

@@ -163,6 +163,7 @@ scripts/gcp_one_pair_train.sh --pair ETH/USDT:USDT
 
 Common options
 - `--timerange 20240224-20240401` — limit walk‑forward windows (fewer trains)
+- `--latest-blocks 22` — if `--timerange` is omitted, use the last N×30 days (default 22)
 - `--id-prefix onepair-` / `--id-suffix -v1` — customize `freqai.identifier`
 - `--cleanup` — delete the VM after artifacts are fetched
 - `--use-iap` — SSH via IAP tunnel if external SSH is blocked

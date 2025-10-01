@@ -19,7 +19,7 @@ set -euo pipefail
 #   --project ID          GCP project (default: valiant-epsilon-472304-r9)
 #   --zone ZONE           Zone (default: asia-south1-c)
 #   --instance-name NAME  VM name (default: onepair-YYYYMMDD-HHMMSS at runtime)
-#   --timerange STR       Backtest timerange (default: 20240101-20250930)
+#   --timerange STR       Backtest timerange (default: last N×30 days; see --latest-blocks)
 #   --threads N           Threads per container (default: 1)
 #   --fresh               Disable model restore for this run
 #   --id-prefix STR       Identifier prefix (default: onepair-)
@@ -43,7 +43,7 @@ PROJECT_ID=${PROJECT_ID:-valiant-epsilon-472304-r9}
 ZONE=${ZONE:-asia-south1-c}
 # Default to a timestamped instance name so each run is unique
 INSTANCE_NAME=${INSTANCE_NAME:-onepair-$(date +%Y%m%d-%H%M%S)}
-TIMERANGE=${TIMERANGE:-20240101-20250930}
+TIMERANGE=${TIMERANGE:-}
 THREADS=${THREADS:-1}
 FRESH=${FRESH:-0}
 ID_PREFIX=${ID_PREFIX:-onepair-}
@@ -54,6 +54,7 @@ APT_TIMEOUT=${APT_TIMEOUT:-600}
 FORCE_APT=${FORCE_APT:-0}
 DEBUG=${DEBUG:-0}
 INSTALL_LOCAL=${INSTALL_LOCAL:-1}
+LATEST_BLOCKS=${LATEST_BLOCKS:-22}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -72,6 +73,7 @@ while [[ $# -gt 0 ]]; do
     --force-apt) FORCE_APT=1; shift;;
     --debug) DEBUG=1; shift;;
     --no-install) INSTALL_LOCAL=0; shift;;
+    --latest-blocks) LATEST_BLOCKS="$2"; shift 2;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown arg: $1" >&2; usage; exit 2;;
   esac
@@ -83,6 +85,15 @@ if [[ -z "$PAIR" ]]; then
 fi
 
 echo "[onepair] Project=${PROJECT_ID} Zone=${ZONE} Instance=${INSTANCE_NAME} Pair=${PAIR}"
+
+# If no explicit timerrange provided, compute the last N*30 days up to today (UTC)
+if [[ -z "${TIMERANGE}" ]]; then
+  END_UTC=$(date -u +%Y%m%d)
+  DAYS=$(( LATEST_BLOCKS * 30 ))
+  START_UTC=$(date -u -d "${END_UTC} - ${DAYS} days" +%Y%m%d)
+  TIMERANGE="${START_UTC}-${END_UTC}"
+  echo "[onepair] Computed TIMERANGE=${TIMERANGE} from latest ${LATEST_BLOCKS}x30 days"
+fi
 
 # Create the VM if it doesn't exist already
 if gcloud compute instances describe "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" >/dev/null 2>&1; then

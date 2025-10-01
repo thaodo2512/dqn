@@ -153,6 +153,7 @@ scripts/gcp_one_pair_train.sh --pair ETH/USDT:USDT \
 
 Key flags
 - `--timerange` — narrows walk‑forward windows to reduce total trains
+- `--latest-blocks` — if `--timerange` is omitted, use the last N×30 days (default 22)
 - `--cleanup` — delete the VM after artifacts are fetched
 - `--use-iap` — SSH via IAP if external SSH is blocked
 - `--debug` — verbose SSH + remote `set -x` for installation/training
