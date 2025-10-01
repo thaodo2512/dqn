@@ -9,6 +9,12 @@ All notable changes to this project will be documented in this file.
   - `docker/docker-compose.reports.jetson.yml` for Jetson: same reporting workflow plus GPU-capable Web UI.
   Both mount `user_data/` so generated HTML appears under `user_data/plot/` on the host.
 
+## [0.2.22] - 2025-10-01
+### Added
+- Helper script `scripts/report_latest.py` to auto-detect the newest backtest results JSON
+  under `user_data/backtest_results/`, generate HTML reports (locally or via the x86
+  reports compose), and open the latest HTML in the default browser.
+
 ## [0.2.16] - 2025-10-01
 ### Changed
 - Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training
