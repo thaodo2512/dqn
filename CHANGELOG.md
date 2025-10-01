@@ -7,6 +7,27 @@ All notable changes to this project will be documented in this file.
 - Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training
   compose and docs, aligning with requested backtest start and avoiding 2023 spans.
 
+## [0.2.17] - 2025-10-01
+### Added
+- Auto multi-core threading launcher: `scripts/launch_with_all_cores.py` detects
+  available CPUs (respecting cgroups/affinity) and sets common thread env vars
+  (OMP/MKL/OPENBLAS/NumExpr/Torch) before running training or dry-run.
+- Docker image now includes `scripts/` and both compose services run via the
+  launcher (`--mode train` / `--mode trade`).
+### Docs
+- Updated README and training docs to mention the new launcher and core auto-detect.
+
+## [0.2.18] - 2025-10-01
+### Added
+- CPU-only docker-compose variants:
+  - `docker/docker-compose.train.cpu.yml` for training/backtesting
+  - `docker/docker-compose.cpu.yml` for dry-run trading
+  Both force `device: cpu` while the launcher auto-configures thread env vars to
+  utilize all available CPU cores.
+### Changed
+- Launcher now honors `FORCE_CPU=1` or `FREQAI_DEVICE=cpu`, generating a small
+  `user_data/cpu-device.json` override and setting `CUDA_VISIBLE_DEVICES=""`.
+
 ## [0.2.6] - 2025-09-30
 ### Fixed
 - Set a safer default `TIMERANGE` in the training compose to `20240215-20250930` to

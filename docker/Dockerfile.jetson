@@ -59,7 +59,8 @@ RUN freqtrade create-userdir --userdir /freqtrade/user_data || true
 # Copy user_data and tools into image (you can also bind-mount via compose)
 COPY user_data /freqtrade/user_data
 COPY tools /freqtrade/tools
+COPY scripts /freqtrade/scripts
 
 EXPOSE 8080
 
-CMD ["bash", "-lc", "freqtrade trade --config user_data/config.json --strategy MyRLStrategy --dry-run"]
+CMD ["python3", "scripts/launch_with_all_cores.py", "--mode", "trade"]

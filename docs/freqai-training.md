@@ -49,15 +49,21 @@ Debugging tips
     --freqaimodel ReinforcementLearner -vv
   ```
 
-The default command executes:
+The service now invokes a small launcher that auto-detects CPU cores and
+configures thread env vars (OMP/MKL/OPENBLAS/NumExpr/Torch) before running the
+workflow:
 ```bash
-tools/download_data.sh && \
-freqtrade backtesting \
-  --config user_data/config.json \
-  --strategy MyRLStrategy \
-  --freqaimodel ReinforcementLearner \
-  --timerange ${TIMERANGE-20240101-20250930}
+python scripts/launch_with_all_cores.py --mode train
 ```
+Internally, this script calls `tools/download_data.sh` and then `freqtrade
+backtesting` with the configured `TIMERANGE`.
+
+## CPU-only variant
+Use the CPU-only compose to force SB3 to run on CPU and still utilize all cores:
+```bash
+docker compose -f docker/docker-compose.train.cpu.yml run --rm freqai-train-cpu
+```
+This uses the same launcher and sets `device: cpu` via a small config override.
 
 ## Customizing the training run
 Set `TIMERANGE` before invoking the service (default is `20240101-20250930`, provided via

@@ -1,31 +1,24 @@
 services:
-  freqai-train:
+  freqai-train-cpu:
     build:
       context: ..
       dockerfile: docker/Dockerfile.jetson
       args:
         BASE_IMAGE: jetson/jp6.2.1-ml:latest
-    runtime: nvidia
-    gpus: all
-    container_name: freqai_dqn_train_jetson
+    container_name: freqai_dqn_train_cpu
+    restart: unless-stopped
     environment:
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
       TIMERANGE: ${TIMERANGE:-20240101-20250930}
-      # Option A default: ensure data coverage prior to backtesting
       DOWNLOAD_START: ${DOWNLOAD_START:-20231001}
-      # DOWNLOAD_TIMEFRAMES defaults to "5m 15m 1h" in the script
       PYTHONFAULTHANDLER: "1"
       PYTHONUNBUFFERED: "1"
       PYTHONWARNINGS: default
       MPLBACKEND: Agg
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - capabilities: [gpu]
+      # Force CPU in the launcher and SB3
+      FORCE_CPU: "1"
     volumes:
       - ../user_data:/freqtrade/user_data
       - ../tools:/freqtrade/tools
+      - ../scripts:/freqtrade/scripts
     working_dir: /freqtrade
     command: ["python3", "scripts/launch_with_all_cores.py", "--mode", "train"]

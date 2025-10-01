@@ -33,8 +33,11 @@ freqtrade download-data \
 
 Docker training defaults to Option A (auto-download with warmup cushion). When using
 `docker-compose.train.jetson.yml`, data for `5m 15m 1h` is downloaded for
-`20231001-<TIMERANGE end>` automatically via `tools/download_data.sh` before the
-backtest runs. Override with `DOWNLOAD_START` / `DOWNLOAD_TIMEFRAMES`.
+`20231001-<TIMERANGE end>` automatically. The container now launches via
+`scripts/launch_with_all_cores.py`, which auto-detects available CPU cores and
+configures thread env vars (OMP/MKL/OPENBLAS/etc.) so numerical libs use all
+cores during feature engineering and training. Override with `DOWNLOAD_START` /
+`DOWNLOAD_TIMEFRAMES`.
 
 ## Pair Discovery
 ```bash
@@ -75,6 +78,16 @@ GPU usage
 - Stable-Baselines3 is configured to `device: cuda` in `user_data/config.json`.
 - Verify inside container:
   `docker compose -f docker/docker-compose.train.jetson.yml run --rm freqai-train python -c "import torch; print(torch.cuda.is_available(), torch.version.cuda)"`
+
+CPU-only compose
+- Training (backtesting + RL, CPU only):
+  `docker compose -f docker/docker-compose.train.cpu.yml run --rm freqai-train-cpu`
+- Dry-run trading (CPU only):
+  `docker compose -f docker/docker-compose.cpu.yml up --build -d`
+
+These CPU variants force SB3 `device: cpu` and the launcher auto-detects all
+available cores, setting thread env vars for NumPy/BLAS/NumExpr/Torch to fully
+utilize the CPU.
 
 ## Action Mapping & Reward
 - `0`: hold
