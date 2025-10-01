@@ -153,6 +153,36 @@ Artifacts
 - Saved to `gcp-output/<instance-name>/` locally (e.g., `freqaimodels.tgz`, `freqaimodels/`).
 - If `GCS_BUCKET` is set, the same folder uploads to `gs://.../<instance-name>/`.
 
+### One‑Pair GCP Training (Quick Run)
+Train a single pair on a small VM and auto‑install the model locally.
+
+Minimal (dynamic instance name, auto‑install enabled):
+```bash
+scripts/gcp_one_pair_train.sh --pair ETH/USDT:USDT
+```
+
+Common options
+- `--timerange 20240224-20240401` — limit walk‑forward windows (fewer trains)
+- `--id-prefix onepair-` / `--id-suffix -v1` — customize `freqai.identifier`
+- `--cleanup` — delete the VM after artifacts are fetched
+- `--use-iap` — SSH via IAP tunnel if external SSH is blocked
+- `--debug` — verbose SSH and remote `set -x` (streams install/training)
+- `--apt-timeout 180` — wait time (s) for apt locks before forcing
+- `--force-apt` — after timeout, stop apt timers, clear locks, proceed (use with care)
+- `--no-install` — skip local model install; artifacts remain under `gcp-output/<instance>/`
+
+Behavior
+- Creates `onepair-YYYYMMDD-HHMMSS` VM by default (override with `--instance-name`).
+- Builds CPU training image, runs backtesting+RL for only the given pair.
+- Fetches artifacts to `gcp-output/<instance>/` and installs models into
+  `user_data/freqaimodels/`, updating `user_data/config.json` `freqai.identifier`.
+
+Notes
+- If apt locks keep the VM busy on first boot, add `--apt-timeout 180 --force-apt` or rerun
+  the script with the same `--instance-name` after a minute; it will continue.
+- Concurrency is fixed to 1 and the trainer writes per‑pair overlays; other pairs won’t
+  be trained in this flow.
+
 Jetson inference
 - Install latest models into this repo: `scripts/install_gcp_models.sh`
 - Install from a specific run and set identifier: `scripts/install_gcp_models.sh --source gcp-output/<instance-name> --identifier <your-id>`

@@ -137,6 +137,35 @@ Defaults target `c4d-standard-16` and produce local artifacts under
 `gcp-output/<instance-name>/` (e.g., `freqaimodels.tgz`, `freqaimodels/`). If `GCS_BUCKET`
 is set, the same directory is uploaded to your bucket.
 
+### One‑Pair GCP Training Helper
+For quick single‑pair training on a small VM with automatic local model install:
+
+```bash
+# Minimal (dynamic instance name)
+scripts/gcp_one_pair_train.sh --pair ETH/USDT:USDT
+
+# With common options
+scripts/gcp_one_pair_train.sh --pair ETH/USDT:USDT \
+  --timerange 20240224-20240401 \
+  --id-prefix onepair- --id-suffix -v1 \
+  --cleanup --debug
+```
+
+Key flags
+- `--timerange` — narrows walk‑forward windows to reduce total trains
+- `--cleanup` — delete the VM after artifacts are fetched
+- `--use-iap` — SSH via IAP if external SSH is blocked
+- `--debug` — verbose SSH + remote `set -x` for installation/training
+- `--apt-timeout` / `--force-apt` — control first‑boot apt lock handling
+- `--no-install` — skip the automatic local install (artifacts stay under `gcp-output/`)
+
+Behavior
+- Uses per‑pair overlays so only the requested pair is trained.
+- Fetches artifacts to `gcp-output/<instance>/` and installs models into `user_data/freqaimodels/`.
+- Updates `user_data/config.json` `freqai.identifier` to the computed identifier.
+
+Tip: Re‑run the script with the same `--instance-name` to continue after any transient first‑boot issues.
+
 ### Remote Training Runner
 The orchestrator invokes `scripts/gcp_vm_run.sh` on the VM to build the training image,
 run bounded‑parallel training via `scripts/train_pairs.py`, and package artifacts under
