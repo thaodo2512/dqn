@@ -23,6 +23,13 @@ All notable changes to this project will be documented in this file.
   - `scripts/gcp_vm_run.sh` — remote runner executed on the VM to build the training image,
     run bounded-parallel training via `scripts/train_pairs.py`, and package artifacts.
 
+## [0.2.24] - 2025-10-01
+### Added
+- `user_data/infer-only.json` overlay to disable RL training and force prediction-only runs using saved models.
+- `scripts/run_inference_jetson.sh` to run Jetson inference:
+  - `backtest` mode: one-off backtest with `--freqai-backtest-live-models` and overlay
+  - `trade` mode: foreground dry-run or detached service via compose
+
 ## [0.2.16] - 2025-10-01
 ### Changed
 - Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training

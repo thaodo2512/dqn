@@ -1,0 +1,12 @@
+{
+  "freqai": {
+    "restore_best_model": true,
+    "save_backtest_models": false,
+    "rl_config": {
+      "train_cycles": 0,
+      "total_timesteps": 0,
+      "optimize_hyperparams": false
+    }
+  }
+}
+

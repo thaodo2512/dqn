@@ -149,6 +149,21 @@ Jetson inference
 - Ensure `user_data/config.json` `freqai.identifier` points to the trained model.
 - Start dry-run/live on Jetson: `docker compose -f docker/docker-compose.jetson.yml up -d`
 
+## Jetson Inference (Saved Models)
+Run inference locally on Jetson using models trained in the cloud.
+
+Quick start
+- Backtest with saved models (no training):
+  `./scripts/run_inference_jetson.sh backtest --timerange 20240801-20240901`
+- Dry-run trading with saved models (foreground):
+  `./scripts/run_inference_jetson.sh trade`
+- Background service (Web/API):
+  `./scripts/run_inference_jetson.sh trade --detach`
+
+Requirements
+- `user_data/freqaimodels/` present and `user_data/config.json` `freqai.identifier` set to the desired model.
+- Overlay `user_data/infer-only.json` (provided) disables RL training loops during inference.
+
 ## Action Mapping & Reward
 - `0`: hold
 - `1`: enter long → `enter_long = 1`
