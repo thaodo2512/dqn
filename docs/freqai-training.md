@@ -140,7 +140,8 @@ is set, the same directory is uploaded to your bucket.
 ### Remote Training Runner
 The orchestrator invokes `scripts/gcp_vm_run.sh` on the VM to build the training image,
 run bounded‑parallel training via `scripts/train_pairs.py`, and package artifacts under
-`output/` in the repo.
+`output/` in the repo (includes `freqaimodels/`, `freqaimodels.tgz`, and logs as
+`logs/` and `logs.tgz`).
 
 Key knobs (defaults for a 16 vCPU VM):
 - `--threads 2` — per‑container BLAS/NumExpr/Torch threads

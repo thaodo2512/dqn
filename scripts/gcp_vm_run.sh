@@ -60,5 +60,12 @@ rm -rf output/freqaimodels
 if [[ -d user_data/freqaimodels ]]; then
   cp -r user_data/freqaimodels output/
 fi
+# Package per-container logs for local debugging
+rm -f output/logs.tgz || true
+tar -C user_data -czf output/logs.tgz logs || echo "[gcp_vm_run] No logs to tar"
+rm -rf output/logs
+if [[ -d user_data/logs ]]; then
+  mkdir -p output
+  cp -r user_data/logs output/
+fi
 echo "[gcp_vm_run] Done. Artifacts under: $(pwd)/output"
-

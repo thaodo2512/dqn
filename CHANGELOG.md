@@ -30,6 +30,11 @@ All notable changes to this project will be documented in this file.
   - `backtest` mode: one-off backtest with `--freqai-backtest-live-models` and overlay
   - `trade` mode: foreground dry-run or detached service via compose
 
+## [0.2.25] - 2025-10-01
+### Improved
+- `scripts/gcp_vm_run.sh` now packages per-container logs for local debugging:
+  copies `user_data/logs/` to `output/logs/` and creates `output/logs.tgz`.
+
 ## [0.2.16] - 2025-10-01
 ### Changed
 - Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training
