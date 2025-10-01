@@ -78,3 +78,16 @@ TIMERANGE=20240401-20250930 docker compose -f docker/docker-compose.train.jetson
 
 All outputs (trained models, TensorBoard logs, etc.) appear under
 `user_data/freqaimodels/` and `user_data/logs/` on the host.
+
+## Verify data coverage
+After downloads, you can verify that all pairs/timeframes start early enough to cover
+your training `TIMERANGE` plus a warmup buffer:
+```bash
+python tools/check_data_coverage.py \
+  --config user_data/config.json \
+  --timerange ${TIMERANGE-20240101-20250930} \
+  --timeframes 5m 15m 1h \
+  --warmup-days ${WARMUP_DAYS-45}
+```
+The checker uses `freqtrade list-data --show-timerange` under the hood and exits non‑zero
+if coverage is insufficient, listing the pairs/timeframes that need earlier data.
