@@ -8,6 +8,11 @@ All notable changes to this project will be documented in this file.
   `onepair-YYYYMMDD-HHMMSS` at runtime so each invocation creates a uniquely
   named instance unless `--instance-name` is provided.
 
+## [0.2.32] - 2025-10-01
+### Improved
+- `scripts/gcp_one_pair_train.sh`: add robust SSH readiness wait with retries and
+  optional `--use-iap` tunneling. Fixes early "connection refused" on fresh boots.
+
 ## [0.2.30] - 2025-10-01
 ### Added
 - One-pair GCP trainer script:

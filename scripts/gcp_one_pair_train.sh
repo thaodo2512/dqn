@@ -25,6 +25,7 @@ set -euo pipefail
 #   --id-prefix STR       Identifier prefix (default: onepair-)
 #   --id-suffix STR       Identifier suffix (default: empty)
 #   --cleanup             Delete the VM at the end (default: keep)
+#   --use-iap             SSH via IAP tunnel instead of external IP
 #
 # Outputs:
 #   gcp-output/<instance-name>/freqaimodels(.tgz), logs(.tgz) fetched locally.
@@ -44,6 +45,7 @@ FRESH=${FRESH:-0}
 ID_PREFIX=${ID_PREFIX:-onepair-}
 ID_SUFFIX=${ID_SUFFIX:-}
 CLEANUP=${CLEANUP:-0}
+USE_IAP=${USE_IAP:-0}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -57,6 +59,7 @@ while [[ $# -gt 0 ]]; do
     --id-prefix) ID_PREFIX="$2"; shift 2;;
     --id-suffix) ID_SUFFIX="$2"; shift 2;;
     --cleanup) CLEANUP=1; shift;;
+    --use-iap) USE_IAP=1; shift;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown arg: $1" >&2; usage; exit 2;;
   esac
@@ -115,6 +118,25 @@ for _ in {1..180}; do
 done
 [[ "$STATUS" == "RUNNING" ]] || { echo "[onepair] VM did not become RUNNING" >&2; exit 1; }
 
+# Wait for SSH service to become reachable; newly booted images may refuse connections briefly.
+echo "[onepair] Waiting for SSH to be ready ..."
+IAP_OPT=""
+if [[ "$USE_IAP" == "1" ]]; then IAP_OPT="--tunnel-through-iap"; fi
+SSH_READY=0
+for i in {1..30}; do
+  if gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT \
+      --command "echo ready" -- -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null >/dev/null 2>&1; then
+    SSH_READY=1; break
+  fi
+  echo "  attempt $i/30: ssh not ready yet; sleeping 5s ..."
+  sleep 5
+done
+if [[ "$SSH_READY" != "1" ]]; then
+  echo "[onepair] SSH still not reachable. Try troubleshooting:" >&2
+  echo "  gcloud compute ssh $INSTANCE_NAME --project=$PROJECT_ID --zone=$ZONE --troubleshoot ${USE_IAP:+--tunnel-through-iap}" >&2
+  exit 1
+fi
+
 echo "[onepair] Installing Docker on the VM ..."
 INSTALL_DOCKER='sudo apt-get update -y && sudo apt-get install -y ca-certificates curl gnupg && \
   sudo install -m 0755 -d /etc/apt/keyrings && \
@@ -123,13 +145,13 @@ INSTALL_DOCKER='sudo apt-get update -y && sudo apt-get install -y ca-certificate
   . /etc/os-release && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null && \
   sudo apt-get update -y && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin python3 && \
   sudo usermod -aG docker $USER && sudo systemctl enable --now docker'
-gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --command "$INSTALL_DOCKER"
+gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$INSTALL_DOCKER"
 
 ROOT_LOCAL=$(pwd)
 REPO_NAME=$(basename "$ROOT_LOCAL")
 
 echo "[onepair] Copying repo to VM ..."
-gcloud compute scp --recurse "$ROOT_LOCAL" "$INSTANCE_NAME":~/. --zone="$ZONE" --project="$PROJECT_ID"
+gcloud compute scp --recurse "$ROOT_LOCAL" "$INSTANCE_NAME":~/. --zone="$ZONE" --project="$PROJECT_ID" ${USE_IAP:+--tunnel-through-iap}
 
 echo "[onepair] Building CPU training image and running single-pair training ..."
 REMOTE_RUN=(
@@ -147,7 +169,7 @@ fi
 if [[ "$FRESH" == "1" ]]; then
   REMOTE_RUN+=(" --fresh")
 fi
-gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --command "${REMOTE_RUN[*]}"
+gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "${REMOTE_RUN[*]}"
 
 echo "[onepair] Packaging artifacts on VM ..."
 PACK_CMD=(
@@ -164,12 +186,12 @@ PACK_CMD=(
   "if [[ -d user_data/logs ]]; then cp -r user_data/logs output/; fi && \n"
   "echo '[onepair] Artifacts ready under: ' $(pwd)/output"
 )
-gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --command "${PACK_CMD[*]}"
+gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "${PACK_CMD[*]}"
 
 LOCAL_OUT_DIR="gcp-output/${INSTANCE_NAME}"
 mkdir -p "$LOCAL_OUT_DIR"
 echo "[onepair] Fetching artifacts to ${LOCAL_OUT_DIR} ..."
-gcloud compute scp --recurse "$INSTANCE_NAME":~/${REPO_NAME}/output/. "$LOCAL_OUT_DIR" --zone="$ZONE" --project="$PROJECT_ID" || echo "[onepair] No artifacts to fetch"
+gcloud compute scp --recurse "$INSTANCE_NAME":~/${REPO_NAME}/output/. "$LOCAL_OUT_DIR" --zone="$ZONE" --project="$PROJECT_ID" ${USE_IAP:+--tunnel-through-iap} || echo "[onepair] No artifacts to fetch"
 
 if [[ "$CLEANUP" == "1" ]]; then
   echo "[onepair] Deleting VM ${INSTANCE_NAME} ..."
