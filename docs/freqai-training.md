@@ -6,7 +6,7 @@ JetPack 6.2.1 image and mounts the project `user_data/` and `tools/` folders, so
 artifacts (models, logs, plots) are written back to the host.
 
 ## Usage
-Build and run the training container (defaults to `--timerange 20240215-20250930`):
+Build and run the training container (defaults to `--timerange 20240101-20250930`):
 ```bash
 docker compose -f docker/docker-compose.train.jetson.yml run --rm freqai-train
 ```
@@ -56,7 +56,7 @@ freqtrade backtesting \
   --config user_data/config.json \
   --strategy MyRLStrategy \
   --freqaimodel ReinforcementLearner \
-  --timerange ${TIMERANGE-20240215-20250930}
+  --timerange ${TIMERANGE-20240101-20250930}
 ```
 
 ## Customizing the training run

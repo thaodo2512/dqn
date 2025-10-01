@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.16] - 2025-10-01
+### Changed
+- Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training
+  compose and docs, aligning with requested backtest start and avoiding 2023 spans.
+
 ## [0.2.6] - 2025-09-30
 ### Fixed
 - Set a safer default `TIMERANGE` in the training compose to `20240215-20250930` to
