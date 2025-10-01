@@ -23,6 +23,22 @@ fi
 : "${FT_CONFIG:=user_data/config.json}"
 
 echo "[download-data] Timeframes: ${DOWNLOAD_TIMEFRAMES}" >&2
+
+# Expand start backwards to include warmup buffer before TIMERANGE start.
+# Default warmup 45 days; override via WARMUP_DAYS.
+: "${WARMUP_DAYS:=45}"
+if [[ -n "${TIMERANGE:-}" && "$TIMERANGE" == *-* ]]; then
+  TR_START="${TIMERANGE%%-*}"
+  if [[ "$TR_START" =~ ^[0-9]{8}$ ]]; then
+    AUTO_START="$(date -u -d "${TR_START} - ${WARMUP_DAYS} days" +%Y%m%d)"
+    # Use the earlier of DOWNLOAD_START and AUTO_START
+    if [[ "$AUTO_START" < "$DOWNLOAD_START" ]]; then
+      echo "[download-data] Extending start back by ${WARMUP_DAYS}d: ${DOWNLOAD_START} -> ${AUTO_START}" >&2
+      DOWNLOAD_START="$AUTO_START"
+    fi
+  fi
+fi
+
 echo "[download-data] Timerange: ${DOWNLOAD_START}-${DOWNLOAD_END}" >&2
 
 # Build a pairs-file including both whitelist and correlated pairs, so FreqAI has
