@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.37] - 2025-10-01
+### Added
+- Downloads: add fine‑grained pair control
+  - `tools/download_data.sh` now supports `SINGLE_PAIR` to restrict downloads to one
+    pair, and `PAIRS_FILE_OVERRIDE` to use a custom JSON list of pairs.
+  - `scripts/train_pairs.py` passes `SINGLE_PAIR` during prefetch when exactly one
+    pair is requested, so one‑pair runs only download the required pair.
+
 ## [0.2.31] - 2025-10-01
 ### Changed
 - `scripts/gcp_one_pair_train.sh`: default VM name is now dynamic, using
