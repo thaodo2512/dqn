@@ -16,6 +16,8 @@ before backtesting (Option A). It runs `tools/download_data.sh`, which fetches:
 - Timeframes: `5m 15m 1h` (override with `DOWNLOAD_TIMEFRAMES`)
 - Timerange: `${DOWNLOAD_START}-${TIMERANGE end}`; defaults are `20231001` to the end
   portion of `TIMERANGE` (falling back to today if not set).
+- Pairs: union of `exchange.pair_whitelist` and `freqai.feature_parameters.include_corr_pairlist`
+  to ensure correlated features have OHLCV coverage.
 
 Override defaults, for example:
 ```bash

@@ -25,11 +25,32 @@ fi
 echo "[download-data] Timeframes: ${DOWNLOAD_TIMEFRAMES}" >&2
 echo "[download-data] Timerange: ${DOWNLOAD_START}-${DOWNLOAD_END}" >&2
 
+# Build a pairs-file including both whitelist and correlated pairs, so FreqAI has
+# all required OHLCV available for feature generation.
+PAIRS_FILE=$(mktemp)
+python3 - "$FT_CONFIG" >"$PAIRS_FILE" <<'PY'
+import json,sys
+cfg_path=sys.argv[1]
+with open(cfg_path,'r',encoding='utf-8') as fh:
+    cfg=json.load(fh)
+wl=cfg.get('exchange',{}).get('pair_whitelist',[])
+corr=cfg.get('freqai',{}).get('feature_parameters',{}).get('include_corr_pairlist',[])
+pairs=sorted(set(wl+corr))
+for p in pairs:
+    print(p)
+PY
+
+echo "[download-data] Pairs (whitelist + correlated):" >&2
+cat "$PAIRS_FILE" >&2 || true
+
 freqtrade download-data \
   --trading-mode futures \
   --config "${FT_CONFIG}" \
   --timeframes ${DOWNLOAD_TIMEFRAMES} \
-  --timerange "${DOWNLOAD_START}-${DOWNLOAD_END}"
+  --timerange "${DOWNLOAD_START}-${DOWNLOAD_END}" \
+  --pairs-file "$PAIRS_FILE"
+
+rm -f "$PAIRS_FILE"
 
 echo "[download-data] Available data after download:" >&2
 # Prefer showing timerange if the CLI supports it; don't pass timeframe filters here.
