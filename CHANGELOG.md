@@ -15,6 +15,14 @@ All notable changes to this project will be documented in this file.
   under `user_data/backtest_results/`, generate HTML reports (locally or via the x86
   reports compose), and open the latest HTML in the default browser.
 
+## [0.2.23] - 2025-10-01
+### Added
+- GCP end-to-end training scripts:
+  - `scripts/gcp_e2e_train.sh` — local orchestrator to create a VM, install Docker, copy repo,
+    run training, fetch artifacts, optionally upload to GCS, and cleanup.
+  - `scripts/gcp_vm_run.sh` — remote runner executed on the VM to build the training image,
+    run bounded-parallel training via `scripts/train_pairs.py`, and package artifacts.
+
 ## [0.2.16] - 2025-10-01
 ### Changed
 - Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training
