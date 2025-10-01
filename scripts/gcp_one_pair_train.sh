@@ -25,6 +25,7 @@ set -euo pipefail
 #   --id-prefix STR       Identifier prefix (default: onepair-)
 #   --id-suffix STR       Identifier suffix (default: empty)
 #   --cleanup             Delete the VM at the end (default: keep)
+#   --no-install          Skip local model install after fetching artifacts
 #   --use-iap             SSH via IAP tunnel instead of external IP
 #   --apt-timeout SECS    Max seconds to wait for apt/dpkg to be idle before forcing (default: 600)
 #   --force-apt           After timeout, stop apt services and proceed (dangerous but pragmatic)
@@ -52,6 +53,7 @@ USE_IAP=${USE_IAP:-0}
 APT_TIMEOUT=${APT_TIMEOUT:-600}
 FORCE_APT=${FORCE_APT:-0}
 DEBUG=${DEBUG:-0}
+INSTALL_LOCAL=${INSTALL_LOCAL:-1}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -69,6 +71,7 @@ while [[ $# -gt 0 ]]; do
     --apt-timeout) APT_TIMEOUT="$2"; shift 2;;
     --force-apt) FORCE_APT=1; shift;;
     --debug) DEBUG=1; shift;;
+    --no-install) INSTALL_LOCAL=0; shift;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown arg: $1" >&2; usage; exit 2;;
   esac
@@ -251,6 +254,19 @@ LOCAL_OUT_DIR="gcp-output/${INSTANCE_NAME}"
 mkdir -p "$LOCAL_OUT_DIR"
 echo "[onepair] Fetching artifacts to ${LOCAL_OUT_DIR} ..."
 gcloud compute scp --recurse "$INSTANCE_NAME":~/${REPO_NAME}/output/. "$LOCAL_OUT_DIR" --zone="$ZONE" --project="$PROJECT_ID" ${USE_IAP:+--tunnel-through-iap} || echo "[onepair] No artifacts to fetch"
+
+# Optionally install models locally and set the identifier in user_data/config.json
+if [[ "$INSTALL_LOCAL" == "1" ]]; then
+  # Compute the same identifier scheme used by train_pairs.py
+  SNAME=$(printf '%s' "$PAIR" | sed 's/[\/:]/_/g')
+  IDENT="${ID_PREFIX}dqn-${SNAME}${ID_SUFFIX}"
+  if [[ -d "$LOCAL_OUT_DIR/freqaimodels" || -f "$LOCAL_OUT_DIR/freqaimodels.tgz" ]]; then
+    echo "[onepair] Installing models locally and setting identifier: ${IDENT}"
+    bash scripts/install_gcp_models.sh --source "$LOCAL_OUT_DIR" --identifier "$IDENT"
+  else
+    echo "[onepair] No models found under ${LOCAL_OUT_DIR} to install" >&2
+  fi
+fi
 
 if [[ "$CLEANUP" == "1" ]]; then
   echo "[onepair] Deleting VM ${INSTANCE_NAME} ..."

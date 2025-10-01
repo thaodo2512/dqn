@@ -32,6 +32,12 @@ All notable changes to this project will be documented in this file.
   10 iterations. Use SSH `-v` during readiness/install when debugging. This makes
   first‑boot issues easier to diagnose in real time.
 
+## [0.2.36] - 2025-10-01
+### Added
+- `scripts/gcp_one_pair_train.sh`: auto‑install newest trained model locally after
+  fetching artifacts and set `freqai.identifier` accordingly. Disable with
+  `--no-install`. Identifier mirrors trainer scheme: `<id_prefix>dqn-<PAIR_SAFE><id_suffix>`.
+
 ## [0.2.30] - 2025-10-01
 ### Added
 - One-pair GCP trainer script:
