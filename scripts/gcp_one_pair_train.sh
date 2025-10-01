@@ -26,6 +26,8 @@ set -euo pipefail
 #   --id-suffix STR       Identifier suffix (default: empty)
 #   --cleanup             Delete the VM at the end (default: keep)
 #   --use-iap             SSH via IAP tunnel instead of external IP
+#   --apt-timeout SECS    Max seconds to wait for apt/dpkg to be idle before forcing (default: 600)
+#   --force-apt           After timeout, stop apt services and proceed (dangerous but pragmatic)
 #
 # Outputs:
 #   gcp-output/<instance-name>/freqaimodels(.tgz), logs(.tgz) fetched locally.
@@ -46,6 +48,8 @@ ID_PREFIX=${ID_PREFIX:-onepair-}
 ID_SUFFIX=${ID_SUFFIX:-}
 CLEANUP=${CLEANUP:-0}
 USE_IAP=${USE_IAP:-0}
+APT_TIMEOUT=${APT_TIMEOUT:-600}
+FORCE_APT=${FORCE_APT:-0}
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -60,6 +64,8 @@ while [[ $# -gt 0 ]]; do
     --id-suffix) ID_SUFFIX="$2"; shift 2;;
     --cleanup) CLEANUP=1; shift;;
     --use-iap) USE_IAP=1; shift;;
+    --apt-timeout) APT_TIMEOUT="$2"; shift 2;;
+    --force-apt) FORCE_APT=1; shift;;
     -h|--help) usage; exit 0;;
     *) echo "Unknown arg: $1" >&2; usage; exit 2;;
   esac
@@ -144,7 +150,7 @@ INSTALL_DOCKER='set -euo pipefail; \
     sudo cloud-init status --wait || true; \
   fi; \
   wait_apt() { \
-    for i in $(seq 1 120); do \
+    for i in $(seq 1 __APT_ITERS__); do \
       if \
         sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
         sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || \
@@ -154,24 +160,43 @@ INSTALL_DOCKER='set -euo pipefail; \
           systemctl is-active --quiet apt-daily-upgrade.service || \
           systemctl is-active --quiet unattended-upgrades.service \
         )); then \
-        echo "[vm] apt/dpkg busy; retry $i/120"; sleep 5; \
+        echo "[vm] apt/dpkg busy; retry $i/__APT_ITERS__"; sleep 5; \
       else \
         sudo dpkg --configure -a || true; return 0; \
       fi; \
     done; \
-    echo "[vm] apt/dpkg remained busy; giving up" >&2; return 1; \
+    echo "[vm] apt/dpkg remained busy after wait window" >&2; \
+    return 2; \
   }; \
   export DEBIAN_FRONTEND=noninteractive; \
-  wait_apt; sudo apt-get -y update; \
-  wait_apt; sudo apt-get -y install ca-certificates curl gnupg; \
+  if ! wait_apt; then \
+    if [ "__FORCE_APT__" = "1" ]; then \
+      echo "[vm] forcing apt: stopping apt-daily/unattended services"; \
+      sudo systemctl stop apt-daily.service apt-daily.timer apt-daily-upgrade.service apt-daily-upgrade.timer unattended-upgrades.service || true; \
+      sleep 3; \
+      echo "[vm] attempting to kill lingering apt/dpkg"; \
+      sudo pkill -9 apt-get || true; sudo pkill -9 dpkg || true; \
+      sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock /var/lib/apt/lists/lock || true; \
+      sudo dpkg --configure -a || true; \
+    else \
+      echo "[vm] apt busy and --force-apt not set; aborting" >&2; exit 1; \
+    fi; \
+  fi; \
+  sudo apt-get -o DPkg::Lock::Timeout=600 -y update; \
+  sudo apt-get -o DPkg::Lock::Timeout=600 -y install ca-certificates curl gnupg; \
   sudo install -m 0755 -d /etc/apt/keyrings; \
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc >/dev/null; \
   sudo chmod a+r /etc/apt/keyrings/docker.asc; \
   . /etc/os-release; echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null; \
-  wait_apt; sudo apt-get -y update; \
-  wait_apt; sudo apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin python3; \
+  sudo apt-get -o DPkg::Lock::Timeout=600 -y update; \
+  sudo apt-get -o DPkg::Lock::Timeout=600 -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin python3; \
   sudo usermod -aG docker $USER; sudo systemctl enable --now docker'
-gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$INSTALL_DOCKER"
+# Bake iteration count and force flag into the remote command
+ITERS=$(( APT_TIMEOUT / 5 ))
+[[ $ITERS -lt 1 ]] && ITERS=1
+REMOTE_INSTALL=${INSTALL_DOCKER/__APT_ITERS__/$ITERS}
+REMOTE_INSTALL=${REMOTE_INSTALL/__FORCE_APT__/$FORCE_APT}
+gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$REMOTE_INSTALL"
 
 ROOT_LOCAL=$(pwd)
 REPO_NAME=$(basename "$ROOT_LOCAL")
