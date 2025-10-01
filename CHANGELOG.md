@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.30] - 2025-10-01
+### Added
+- One-pair GCP trainer script:
+  - `scripts/gcp_one_pair_train.sh` — creates a small VM (defaults taken from the provided
+    `gcloud compute instances create ...` command), installs Docker, copies this repo,
+    builds the CPU training image, trains exactly one pair via `scripts/train_pairs.py`
+    with `--concurrency 1`, packages artifacts, fetches them locally under
+    `gcp-output/<instance>/`, and optionally deletes the VM. Existing scripts remain
+    unchanged.
+
 ## [0.2.21] - 2025-10-01
 ### Added
 - Reports and Web UI compose stacks:
