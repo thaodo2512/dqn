@@ -12,13 +12,30 @@ set -euo pipefail
 : "${ZONE:=asia-south1-c}"
 : "${INSTANCE_NAME:=dqn-train-$(date +%Y%m%d-%H%M%S)}"
 : "${MACHINE_TYPE:=c4d-standard-16}"
+:
+# Network and disk defaults aligned with your gcloud command
+: "${NIC_TYPE:=GVNIC}"
+: "${STACK_TYPE:=IPV4_ONLY}"
+: "${SUBNET:=default}"
+:
 : "${DISK_SIZE_GB:=200}"
-: "${DISK_TYPE:=pd-ssd}"
-: "${VISIBLE_CORE_COUNT:=}"
+: "${DISK_TYPE:=hyperdisk-balanced}"
+: "${PROVISIONED_IOPS:=4200}"
+: "${PROVISIONED_THROUGHPUT:=440}"
+:
+# Exact image (not family)
+: "${EXACT_IMAGE:=projects/ubuntu-os-cloud/global/images/ubuntu-minimal-2204-jammy-v20250930}"
+:
+# CPU/platform/tags/labels
+: "${MIN_CPU_PLATFORM:=AMD Turin}"
+: "${THREADS_PER_CORE:=2}"
+: "${VISIBLE_CORE_COUNT:=8}"
+: "${LABELS:=goog-ec-src=vm_add-gcloud}"
+: "${RESERVATION_AFFINITY:=any}"
+: "${TAGS:=http-server,https-server}"
+:
 : "${SERVICE_ACCOUNT:=}"           # empty = use default compute SA
-: "${SCOPES:=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write}"
-: "${IMAGE_FAMILY:=ubuntu-2204-lts}"
-: "${IMAGE_PROJECT:=ubuntu-os-cloud}"
+: "${SCOPES:=https://www.googleapis.com/auth/devstorage.read_only,https://www.googleapis.com/auth/logging.write,https://www.googleapis.com/auth/monitoring.write,https://www.googleapis.com/auth/service.management.readonly,https://www.googleapis.com/auth/servicecontrol,https://www.googleapis.com/auth/trace.append}"
 
 # Training params
 : "${THREADS:=2}"
@@ -44,16 +61,20 @@ CREATE_ARGS=(
   --project "$PROJECT_ID"
   --zone "$ZONE"
   --machine-type "$MACHINE_TYPE"
-  --network-interface=network-tier=PREMIUM,subnet=default
+  --network-interface=network-tier=PREMIUM,nic-type=${NIC_TYPE},stack-type=${STACK_TYPE},subnet=${SUBNET}
   --maintenance-policy=MIGRATE
   --provisioning-model=STANDARD
   --scopes "$SCOPES"
-  --image-family "$IMAGE_FAMILY" --image-project "$IMAGE_PROJECT"
-  --boot-disk-size=${DISK_SIZE_GB} --boot-disk-type=${DISK_TYPE} --boot-disk-auto-delete
+  --min-cpu-platform "${MIN_CPU_PLATFORM}"
+  --tags "$TAGS"
+  --create-disk=auto-delete=yes,boot=yes,device-name=${INSTANCE_NAME},image=${EXACT_IMAGE},mode=rw,provisioned-iops=${PROVISIONED_IOPS},provisioned-throughput=${PROVISIONED_THROUGHPUT},size=${DISK_SIZE_GB},type=${DISK_TYPE}
   --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring
+  --labels "$LABELS"
+  --reservation-affinity "$RESERVATION_AFFINITY"
+  --threads-per-core "$THREADS_PER_CORE"
+  --visible-core-count "$VISIBLE_CORE_COUNT"
 )
 [[ -n "$SERVICE_ACCOUNT" ]] && CREATE_ARGS+=(--service-account "$SERVICE_ACCOUNT")
-[[ -n "$VISIBLE_CORE_COUNT" ]] && CREATE_ARGS+=(--visible-core-count "$VISIBLE_CORE_COUNT")
 
 if ! gcloud "${CREATE_ARGS[@]}"; then
   echo "[gcp_e2e] VM creation failed" >&2; exit 1
