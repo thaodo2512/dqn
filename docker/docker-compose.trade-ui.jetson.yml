@@ -1,0 +1,28 @@
+services:
+  freqai-trade-ui-jetson:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.jetson
+      args:
+        BASE_IMAGE: jetson/jp6.2.1-ml:latest
+    runtime: nvidia
+    gpus: all
+    container_name: freqai_trade_ui_jetson
+    restart: unless-stopped
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      PYTHONFAULTHANDLER: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: default
+      MPLBACKEND: Agg
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../user_data:/freqtrade/user_data
+      - ../tools:/freqtrade/tools
+      - ../scripts:/freqtrade/scripts
+    working_dir: /freqtrade
+    # Enable API server via overlay and run trade in dry-run with inference-only overlay
+    command: ["bash", "-lc", "printf '{\\"api_server\\":{\\"enabled\\":true}}\n' > user_data/ui-on.json && freqtrade trade --config user_data/config.json --config user_data/infer-only.json --config user_data/ui-on.json --strategy-path user_data/strategies --strategy MyRLStrategy --dry-run"]
+

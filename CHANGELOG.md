@@ -46,6 +46,14 @@ All notable changes to this project will be documented in this file.
   output models into `user_data/freqaimodels/`, optionally set `freqai.identifier`, and
   rsync to a Jetson repo path.
 
+## [0.2.28] - 2025-10-01
+### Added
+- Trade Web UI compose stacks (inference-only):
+  - `docker/docker-compose.trade-ui.jetson.yml` (Jetson GPU)
+  - `docker/docker-compose.trade-ui.cpu.x86.yml` (x86 CPU)
+  Both enable the API server on port 8080 and run `freqtrade trade` with the
+  inference-only overlay. Open http://localhost:8080 to monitor the bot.
+
 ## [0.2.16] - 2025-10-01
 ### Changed
 - Default training `TIMERANGE` now starts at `20240101` (Jan 1, 2024) in the training

@@ -115,6 +115,15 @@ Jetson (reports + Web UI)
 - Start Web UI at http://localhost:8080:
   `docker compose -f docker/docker-compose.reports.jetson.yml up -d freqai-webui-jetson`
 
+Trade Web UI (inference-only)
+- Jetson (GPU):
+  `docker compose -f docker/docker-compose.trade-ui.jetson.yml up -d`
+- x86 CPU:
+  `docker compose -f docker/docker-compose.trade-ui.cpu.x86.yml up -d`
+These start dry-run trading with the API server enabled (port 8080) and the
+inference-only overlay applied. Ensure models are installed and
+`user_data/config.json` has the correct `freqai.identifier`.
+
 Notes
 - Make sure you have a backtest results JSON. If not, rerun backtesting with:
   `freqtrade backtesting --config user_data/config.json --strategy-path user_data/strategies --strategy MyRLStrategy --freqaimodel ReinforcementLearner --export-filename user_data/backtest_results/latest.json`

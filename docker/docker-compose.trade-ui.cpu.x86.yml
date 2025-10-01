@@ -1,0 +1,23 @@
+services:
+  freqai-trade-ui-cpu-x86:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.cpu
+    container_name: freqai_trade_ui_cpu_x86
+    restart: unless-stopped
+    environment:
+      PYTHONFAULTHANDLER: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: default
+      MPLBACKEND: Agg
+      # Force CPU path in libraries and SB3 device override
+      FORCE_CPU: "1"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ../user_data:/freqtrade/user_data
+      - ../tools:/freqtrade/tools
+      - ../scripts:/freqtrade/scripts
+    working_dir: /freqtrade
+    command: ["bash", "-lc", "printf '{\\"api_server\\":{\\"enabled\\":true}}\n' > user_data/ui-on.json && freqtrade trade --config user_data/config.json --config user_data/infer-only.json --config user_data/ui-on.json --strategy-path user_data/strategies --strategy MyRLStrategy --dry-run"]
+
