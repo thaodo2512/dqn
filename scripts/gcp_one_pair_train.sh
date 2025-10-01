@@ -139,25 +139,37 @@ fi
 
 echo "[onepair] Installing Docker on the VM ..."
 INSTALL_DOCKER='set -euo pipefail; \
-  wait_dpkg() { \
-    for i in $(seq 1 60); do \
-      if sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; then \
-        echo "[vm] apt/dpkg locked; retry $i/60"; sleep 3; \
+  # Ensure cloud-init completed to avoid racing its apt jobs
+  if command -v cloud-init >/dev/null 2>&1; then \
+    sudo cloud-init status --wait || true; \
+  fi; \
+  wait_apt() { \
+    for i in $(seq 1 120); do \
+      if \
+        sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+        sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1 || \
+        sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
+        (command -v systemctl >/dev/null 2>&1 && ( \
+          systemctl is-active --quiet apt-daily.service || \
+          systemctl is-active --quiet apt-daily-upgrade.service || \
+          systemctl is-active --quiet unattended-upgrades.service \
+        )); then \
+        echo "[vm] apt/dpkg busy; retry $i/120"; sleep 5; \
       else \
         sudo dpkg --configure -a || true; return 0; \
       fi; \
     done; \
-    echo "[vm] dpkg lock did not clear in time" >&2; return 1; \
+    echo "[vm] apt/dpkg remained busy; giving up" >&2; return 1; \
   }; \
   export DEBIAN_FRONTEND=noninteractive; \
-  wait_dpkg; sudo apt-get update -y; \
-  wait_dpkg; sudo apt-get install -y ca-certificates curl gnupg; \
+  wait_apt; sudo apt-get -y update; \
+  wait_apt; sudo apt-get -y install ca-certificates curl gnupg; \
   sudo install -m 0755 -d /etc/apt/keyrings; \
   curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc >/dev/null; \
   sudo chmod a+r /etc/apt/keyrings/docker.asc; \
   . /etc/os-release; echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null; \
-  wait_dpkg; sudo apt-get update -y; \
-  wait_dpkg; sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin python3; \
+  wait_apt; sudo apt-get -y update; \
+  wait_apt; sudo apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin python3; \
   sudo usermod -aG docker $USER; sudo systemctl enable --now docker'
 gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$INSTALL_DOCKER"
 
