@@ -96,6 +96,11 @@ def train_one_pair(
         # Unique identifier per pair
         f"echo '{{\"freqai\":{{\"identifier\":\"dqn-{sname}\"}}}}' > user_data/id-{sname}.json",
     ]
+    # Restrict backtest to this single pair to avoid config pairlist overriding -p
+    pair_cfg_path = f"user_data/pairs-{sname}.json"
+    parts.append(
+        f"echo '{{\"exchange\":{{\"pair_whitelist\":[\"{pair}\"]}}}}' > {pair_cfg_path}"
+    )
     debug_cfg_opt = ""
     if reward_debug:
         dbg_path = f"user_data/reward-debug-{sname}.json"
@@ -109,7 +114,7 @@ def train_one_pair(
         + " && "
         + "freqtrade backtesting "
         + f"--config /freqtrade/user_config/{shlex.quote(cfg_base)} "
-        + f"--config user_data/cpu-device.json --config user_data/id-{sname}.json{debug_cfg_opt} "
+        + f"--config user_data/cpu-device.json --config user_data/id-{sname}.json --config {pair_cfg_path}{debug_cfg_opt} "
         + "--strategy-path user_data/strategies --strategy MyRLStrategy "
         + "--freqaimodel ReinforcementLearner "
         + f"-p {shlex.quote(pair)} "
@@ -285,6 +290,9 @@ def main(argv: Iterable[str]) -> int:
     conc = args.concurrency or compute_default_concurrency(threads, cpus)
     print(f"[train_pairs] Detected CPUs={cpus} -> threads/container={threads}, concurrency={conc}")
     print(f"[train_pairs] Total pairs: {len(pairs)}")
+    print("[train_pairs] Pairs:")
+    for p in pairs:
+        print(f"  - {p}")
 
     # Prefetch OHLCV data using the external config
     print("[train_pairs] Prefetching historical data ...")
