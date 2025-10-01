@@ -138,13 +138,27 @@ if [[ "$SSH_READY" != "1" ]]; then
 fi
 
 echo "[onepair] Installing Docker on the VM ..."
-INSTALL_DOCKER='sudo apt-get update -y && sudo apt-get install -y ca-certificates curl gnupg && \
-  sudo install -m 0755 -d /etc/apt/keyrings && \
-  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc >/dev/null && \
-  sudo chmod a+r /etc/apt/keyrings/docker.asc && \
-  . /etc/os-release && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null && \
-  sudo apt-get update -y && sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin python3 && \
-  sudo usermod -aG docker $USER && sudo systemctl enable --now docker'
+INSTALL_DOCKER='set -euo pipefail; \
+  wait_dpkg() { \
+    for i in $(seq 1 60); do \
+      if sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; then \
+        echo "[vm] apt/dpkg locked; retry $i/60"; sleep 3; \
+      else \
+        sudo dpkg --configure -a || true; return 0; \
+      fi; \
+    done; \
+    echo "[vm] dpkg lock did not clear in time" >&2; return 1; \
+  }; \
+  export DEBIAN_FRONTEND=noninteractive; \
+  wait_dpkg; sudo apt-get update -y; \
+  wait_dpkg; sudo apt-get install -y ca-certificates curl gnupg; \
+  sudo install -m 0755 -d /etc/apt/keyrings; \
+  curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo tee /etc/apt/keyrings/docker.asc >/dev/null; \
+  sudo chmod a+r /etc/apt/keyrings/docker.asc; \
+  . /etc/os-release; echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu ${VERSION_CODENAME} stable" | sudo tee /etc/apt/sources.list.d/docker.list >/dev/null; \
+  wait_dpkg; sudo apt-get update -y; \
+  wait_dpkg; sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin python3; \
+  sudo usermod -aG docker $USER; sudo systemctl enable --now docker'
 gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$INSTALL_DOCKER"
 
 ROOT_LOCAL=$(pwd)

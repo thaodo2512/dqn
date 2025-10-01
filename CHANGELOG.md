@@ -19,6 +19,12 @@ All notable changes to this project will be documented in this file.
   copying a single archive to the VM, extracting it there, and removing the archive.
   Replaces recursive file copy which was slow for many small files.
 
+## [0.2.34] - 2025-10-01
+### Fixed
+- `scripts/gcp_one_pair_train.sh`: make Docker install resilient to apt/dpkg locks by
+  waiting for locks to clear and retrying `apt-get update/install` steps. Prevents
+  failures like "Could not get lock /var/lib/dpkg/lock-frontend" on fresh VMs.
+
 ## [0.2.30] - 2025-10-01
 ### Added
 - One-pair GCP trainer script:
