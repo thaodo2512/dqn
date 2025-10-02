@@ -30,6 +30,7 @@ class MyFiveActionEnv(Base5ActionRLEnv):
     - Reward uses delta PnL during open trades (no per-step fees).
     - Fees applied only on entries/exits.
     - Simple churn window (entry frequency) and per‑trade drawdown penalty.
+    - Optional holding penalty per candle while in a position.
     """
 
     # Gym/Gymnasium compatible reset signature varies across versions; accept pass‑through.
@@ -59,6 +60,7 @@ class MyFiveActionEnv(Base5ActionRLEnv):
         reward_clip = float(rw.get("reward_clip", 5.0))
         churn_window = int(rw.get("churn_window_steps", 50))
         debug_log = bool(rw.get("debug_log", False) or rw.get("reward_debug", False))
+        holding_penalty = float(rw.get("holding_penalty", 0.0))
 
         # Profit ratio from current open trade (unrealized PnL proxy)
         trade_profit = (
@@ -73,6 +75,10 @@ class MyFiveActionEnv(Base5ActionRLEnv):
         prev_profit = float(getattr(self, "_prev_trade_profit", 0.0))
         pnl_delta = (trade_profit - prev_profit) if in_position else 0.0
         reward = pnl_delta
+
+        # Apply a small, constant holding penalty per step while in position
+        if in_position and holding_penalty > 0.0:
+            reward -= holding_penalty
 
         # Apply fees only on transitions based on the position BEFORE the action
         is_entry = action in (Actions.Long_enter.value, Actions.Short_enter.value)
@@ -181,6 +187,59 @@ class MyRLStrategy(FreqaiStrategy):
         dataframe[f"%-atr_{period}"] = ta.atr(
             high=dataframe["high"], low=dataframe["low"], close=dataframe["close"], length=period
         )
+        # Bollinger Bands (default stdev 2.0)
+        try:
+            bb = ta.bbands(dataframe["close"], length=period)
+            lower_key = f"BBL_{period}_2.0"
+            mid_key = f"BBM_{period}_2.0"
+            upper_key = f"BBU_{period}_2.0"
+            if bb is not None:
+                if lower_key in bb:
+                    dataframe[f"%-bb_lower_{period}"] = bb[lower_key]
+                if mid_key in bb:
+                    dataframe[f"%-bb_middle_{period}"] = bb[mid_key]
+                if upper_key in bb:
+                    dataframe[f"%-bb_upper_{period}"] = bb[upper_key]
+        except Exception:
+            pass
+
+        # MACD (fixed fast/slow/signal; suffix with period for uniqueness)
+        try:
+            macd = ta.macd(dataframe["close"])
+            if macd is not None:
+                if "MACD_12_26_9" in macd:
+                    dataframe[f"%-macd_{period}"] = macd["MACD_12_26_9"]
+                if "MACDs_12_26_9" in macd:
+                    dataframe[f"%-macdsignal_{period}"] = macd["MACDs_12_26_9"]
+        except Exception:
+            pass
+
+        # ADX (trend strength)
+        try:
+            adx = ta.adx(
+                high=dataframe["high"],
+                low=dataframe["low"],
+                close=dataframe["close"],
+                length=period,
+            )
+            if adx is not None:
+                key = f"ADX_{period}"
+                if key in adx:
+                    dataframe[f"%-adx_{period}"] = adx[key]
+                else:
+                    # Fallback: first column containing 'ADX'
+                    for c in adx.columns:
+                        if str(c).startswith("ADX"):
+                            dataframe[f"%-adx_{period}"] = adx[c]
+                            break
+        except Exception:
+            pass
+
+        # Raw volume per period as a simple liquidity proxy
+        try:
+            dataframe[f"%-volume_{period}"] = dataframe["volume"]
+        except Exception:
+            pass
         return dataframe
 
     # Minimal standard features for RL observations
