@@ -77,6 +77,14 @@ All notable changes to this project will be documented in this file.
   - Set `freqai.log_level` to `DEBUG`.
   - Enable reward component debug logs via `freqai.rl_config.reward_kwargs.debug_log=true`.
 
+## [0.2.49] - 2025-10-02
+### Changed
+- Switch RL model to PPO with GPU-friendly defaults:
+  - `model_type: PPO`, `policy: MlpPolicy`
+  - `learning_rate: 3e-4`, `n_steps: 2048`, `batch_size: 512`, `n_epochs: 10`
+  - PPO essentials: `gae_lambda: 0.95`, `clip_range: 0.2`, `ent_coef: 0.0`, `vf_coef: 0.5`, `max_grad_norm: 0.5`
+  - Keep `policy_kwargs.net_arch=[512, 512]`, `device=cuda`, `verbose=1`
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control
