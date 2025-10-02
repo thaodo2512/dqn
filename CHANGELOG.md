@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.38] - 2025-10-02
+### Improved
+- `scripts/gcp_one_pair_train.sh`: harden reliability and UX
+  - Proactively disable and remove `unattended-upgrades` before installing Docker to avoid apt/dpkg locks on fresh boots.
+  - Default `APT_TIMEOUT` increased to 900s and `--force-apt` behavior enabled by default; still overridable via flags.
+  - Add optional Ops Agent control: `--enable-ops-agent` to install/label; skipped by default (prevents boot‑time apt contention). Default labels no longer include Ops Agent policy unless enabled.
+  - Add logging to `gcp-output/<instance>/onepair.log` and trap‑based cleanup on errors when `--cleanup` is set.
+  - Validate `--pair` format early (e.g., `BTC/USDT:USDT`).
+  - If instance exists but is not RUNNING, start it automatically instead of failing later.
+  - Verify Docker is healthy on the VM (`docker info`) before building/running training.
+  - Use maximum gzip compression for packaged artifacts (logs/models) to reduce transfer size.
+  - Security: default `--use-iap` on (can disable with `--no-iap`).
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control

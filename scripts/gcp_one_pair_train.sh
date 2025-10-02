@@ -49,9 +49,13 @@ FRESH=${FRESH:-0}
 ID_PREFIX=${ID_PREFIX:-onepair-}
 ID_SUFFIX=${ID_SUFFIX:-}
 CLEANUP=${CLEANUP:-0}
-USE_IAP=${USE_IAP:-0}
-APT_TIMEOUT=${APT_TIMEOUT:-600}
-FORCE_APT=${FORCE_APT:-0}
+USE_IAP=${USE_IAP:-1}
+APT_TIMEOUT=${APT_TIMEOUT:-900}
+FORCE_APT=${FORCE_APT:-1}
+# Skip Ops Agent policy/auto-install by default to avoid apt lock conflicts
+NO_OPS_AGENT=${NO_OPS_AGENT:-1}
+# Optional explicit enable (overrides NO_OPS_AGENT)
+ENABLE_OPS_AGENT=${ENABLE_OPS_AGENT:-0}
 DEBUG=${DEBUG:-0}
 INSTALL_LOCAL=${INSTALL_LOCAL:-1}
 LATEST_BLOCKS=${LATEST_BLOCKS:-22}
@@ -69,8 +73,11 @@ while [[ $# -gt 0 ]]; do
     --id-suffix) ID_SUFFIX="$2"; shift 2;;
     --cleanup) CLEANUP=1; shift;;
     --use-iap) USE_IAP=1; shift;;
+    --no-iap) USE_IAP=0; shift;;
     --apt-timeout) APT_TIMEOUT="$2"; shift 2;;
     --force-apt) FORCE_APT=1; shift;;
+    --no-ops-agent) NO_OPS_AGENT=1; ENABLE_OPS_AGENT=0; shift;;
+    --enable-ops-agent) ENABLE_OPS_AGENT=1; NO_OPS_AGENT=0; shift;;
     --debug) DEBUG=1; shift;;
     --no-install) INSTALL_LOCAL=0; shift;;
     --latest-blocks) LATEST_BLOCKS="$2"; shift 2;;
@@ -84,6 +91,12 @@ if [[ -z "$PAIR" ]]; then
   usage; exit 2
 fi
 
+# Basic pair format validation (uppercase symbols incl. digits)
+if ! [[ "$PAIR" =~ ^[A-Z0-9]+/[A-Z0-9]+:[A-Z0-9]+$ ]]; then
+  echo "[onepair] Invalid pair format: $PAIR (expected BASE/QUOTE:SETTLE, e.g., BTC/USDT:USDT)" >&2
+  exit 2
+fi
+
 echo "[onepair] Project=${PROJECT_ID} Zone=${ZONE} Instance=${INSTANCE_NAME} Pair=${PAIR}"
 
 # If no explicit timerrange provided, compute the last N*30 days up to today (UTC)
@@ -95,11 +108,43 @@ if [[ -z "${TIMERANGE}" ]]; then
   echo "[onepair] Computed TIMERANGE=${TIMERANGE} from latest ${LATEST_BLOCKS}x30 days"
 fi
 
+# Prepare logging early (under gcp-output/<instance>/)
+LOG_DIR="gcp-output/${INSTANCE_NAME}"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/onepair.log"
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+# Trap for cleanup on error when requested
+cleanup_on_err() {
+  local rc=$?
+  echo "[onepair] Error on line ${BASH_LINENO[0]} (exit ${rc})"
+  if [[ "$CLEANUP" == "1" ]]; then
+    echo "[onepair] Cleaning up VM ${INSTANCE_NAME} due to error ..."
+    gcloud compute instances delete "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --quiet || true
+  fi
+  exit $rc
+}
+trap cleanup_on_err ERR
+
 # Create the VM if it doesn't exist already
 if gcloud compute instances describe "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" >/dev/null 2>&1; then
   echo "[onepair] Instance already exists: ${INSTANCE_NAME} (skipping create)"
+  # Ensure it's running; start if stopped/terminated
+  STATUS_NOW=$(gcloud compute instances describe "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" --format='value(status)' || true)
+  if [[ "$STATUS_NOW" != "RUNNING" ]]; then
+    echo "[onepair] Instance status is $STATUS_NOW; starting ..."
+    gcloud compute instances start "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID"
+  fi
 else
   echo "[onepair] Creating VM ${INSTANCE_NAME} ..."
+  # Labels: always include gcloud source; include ops-agent label only when enabled
+  BASE_LABELS="goog-ec-src=vm_add-gcloud"
+  if [[ "$ENABLE_OPS_AGENT" == "1" ]]; then
+    LABELS_ARG="${BASE_LABELS},goog-ops-agent-policy=v2-x86-template-1-4-0"
+  else
+    LABELS_ARG="$BASE_LABELS"
+  fi
+
   gcloud compute instances create "$INSTANCE_NAME" \
     --project="$PROJECT_ID" \
     --zone="$ZONE" \
@@ -114,13 +159,14 @@ else
     --tags=http-server,https-server \
     --create-disk=auto-delete=yes,boot=yes,device-name="${INSTANCE_NAME}",image=projects/ubuntu-os-cloud/global/images/ubuntu-minimal-2204-jammy-v20250930,mode=rw,provisioned-iops=3300,provisioned-throughput=215,size=50,type=hyperdisk-balanced \
     --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring \
-    --labels=goog-ops-agent-policy=v2-x86-template-1-4-0,goog-ec-src=vm_add-gcloud \
+    --labels="$LABELS_ARG" \
     --reservation-affinity=any \
     --threads-per-core=1 \
     --visible-core-count=1
 
-  # Create ops-agents policy matching your template (ignore if it already exists)
-  echo "agentsRule:
+  # Optionally create ops-agents policy if explicitly enabled
+  if [[ "$ENABLE_OPS_AGENT" == "1" ]]; then
+    echo "agentsRule:
   packageState: installed
   version: latest
 instanceFilter:
@@ -128,9 +174,12 @@ instanceFilter:
   - labels:
       goog-ops-agent-policy: v2-x86-template-1-4-0
 " > /tmp/ops-agents-config.yaml
-  POLICY_NAME="goog-ops-agent-v2-x86-template-1-4-0-${ZONE}"
-  gcloud compute instances ops-agents policies create "$POLICY_NAME" \
-    --project="$PROJECT_ID" --zone="$ZONE" --file=/tmp/ops-agents-config.yaml || true
+    POLICY_NAME="goog-ops-agent-v2-x86-template-1-4-0-${ZONE}"
+    gcloud compute instances ops-agents policies create "$POLICY_NAME" \
+      --project="$PROJECT_ID" --zone="$ZONE" --file=/tmp/ops-agents-config.yaml || true
+  else
+    echo "[onepair] Skipping Ops Agent policy creation (enable with --enable-ops-agent)"
+  fi
 fi
 
 echo "[onepair] Waiting for VM to be RUNNING ..."
@@ -170,6 +219,11 @@ INSTALL_DOCKER='set -euo pipefail; \
     echo "[vm] cloud-init status:"; sudo cloud-init status || true; \
     sudo cloud-init status --wait || true; \
   fi; \
+  echo "[vm] Disabling unattended-upgrades to avoid apt conflicts"; \
+  sudo systemctl stop unattended-upgrades apt-daily.service apt-daily-upgrade.service || true; \
+  sudo systemctl disable unattended-upgrades apt-daily.service apt-daily-upgrade.service || true; \
+  sudo apt-get remove -y unattended-upgrades || true; \
+  sudo dpkg --configure -a || true; \
   wait_apt() { \
     for i in $(seq 1 __APT_ITERS__); do \
       if \
@@ -245,7 +299,7 @@ gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_
 
 echo "[onepair] Building CPU training image and running single-pair training ..."
 PAIR_ESC=$(printf %q "$PAIR")
-REMOTE_CMD="set -euo pipefail; cd ~/${REPO_NAME} && docker compose -f docker/docker-compose.train.cpu.x86.yml build && python3 scripts/train_pairs.py --threads ${THREADS} --concurrency 1 --timerange ${TIMERANGE} --pairs ${PAIR_ESC}"
+REMOTE_CMD="set -euo pipefail; cd ~/${REPO_NAME} && docker info && docker compose -f docker/docker-compose.train.cpu.x86.yml build && python3 scripts/train_pairs.py --threads ${THREADS} --concurrency 1 --timerange ${TIMERANGE} --pairs ${PAIR_ESC}"
 if [[ -n "$ID_PREFIX" ]]; then
   IDP_ESC=$(printf %q "$ID_PREFIX"); REMOTE_CMD+=" --id-prefix ${IDP_ESC}"
 fi
@@ -258,7 +312,7 @@ fi
 gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$REMOTE_CMD" ${DEBUG:+-- -v}
 
 echo "[onepair] Packaging artifacts on VM ..."
-PACK_CMD="set -euo pipefail; cd ~/${REPO_NAME} && mkdir -p output; rm -f output/freqaimodels.tgz || true; tar -C user_data -czf output/freqaimodels.tgz freqaimodels || true; rm -rf output/freqaimodels; if [[ -d user_data/freqaimodels ]]; then cp -r user_data/freqaimodels output/; fi; rm -f output/logs.tgz || true; tar -C user_data -czf output/logs.tgz logs || true; rm -rf output/logs; if [[ -d user_data/logs ]]; then cp -r user_data/logs output/; fi; echo '[onepair] Artifacts ready under: ' $(pwd)/output"
+PACK_CMD="set -euo pipefail; cd ~/${REPO_NAME} && mkdir -p output; rm -f output/freqaimodels.tgz || true; GZIP=-9 tar -C user_data -czf output/freqaimodels.tgz freqaimodels || true; rm -rf output/freqaimodels; if [[ -d user_data/freqaimodels ]]; then cp -r user_data/freqaimodels output/; fi; rm -f output/logs.tgz || true; GZIP=-9 tar -C user_data -czf output/logs.tgz logs || true; rm -rf output/logs; if [[ -d user_data/logs ]]; then cp -r user_data/logs output/; fi; echo '[onepair] Artifacts ready under: ' $(pwd)/output"
 gcloud compute ssh "$INSTANCE_NAME" --zone="$ZONE" --project="$PROJECT_ID" $IAP_OPT --command "$PACK_CMD" ${DEBUG:+-- -v}
 
 LOCAL_OUT_DIR="gcp-output/${INSTANCE_NAME}"
