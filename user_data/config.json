@@ -95,7 +95,7 @@
     "data_split_parameters": {
       "test_size": 0.2,
       "random_state": 42,
-      "shuffle": true
+      "shuffle": false
     },
     "rl_config": {
       "enabled": true,

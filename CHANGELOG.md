@@ -66,6 +66,11 @@ All notable changes to this project will be documented in this file.
   - `batch_size` → 1024, `train_freq` → 8, `gradient_steps` → 4, `verbose` → 1
   - Add `policy_kwargs: { net_arch: [512, 512] }` to increase model capacity
 
+## [0.2.47] - 2025-10-02
+### Changed
+- Prevent time-series leakage: set `data_split_parameters.shuffle` to `false` in
+  `user_data/config.json` for more realistic RL generalization.
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control
