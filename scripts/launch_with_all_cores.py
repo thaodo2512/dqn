@@ -139,6 +139,24 @@ def _maybe_cpu_override() -> list[str]:
 
 
 def do_train() -> int:
+    # Quick GPU sanity print (does not fail the run)
+    try:
+        print("[launcher] Torch CUDA sanity:")
+        subprocess.run(
+            [
+                "python3",
+                "-c",
+                (
+                    "import torch;"
+                    "print('  cuda_available =', torch.cuda.is_available());"
+                    "print('  device_count  =', torch.cuda.device_count());"
+                    "print('  device_name   =', (torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A'))"
+                ),
+            ],
+            check=False,
+        )
+    except Exception:
+        pass
     # Step 1: ensure data coverage
     rc = run_cmd(["bash", "tools/download_data.sh"])
     if rc != 0:

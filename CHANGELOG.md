@@ -55,6 +55,11 @@ All notable changes to this project will be documented in this file.
   using the L4 compose. Computes `TIMERANGE` as the last N×30 days (default 22) unless an
   explicit `--timerange` is provided.
 
+## [0.2.45] - 2025-10-02
+### Added
+- Print Torch CUDA availability (is_available, device_count, device_name) at the start of
+  training inside `scripts/launch_with_all_cores.py` to make GPU usage explicit in logs.
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control
