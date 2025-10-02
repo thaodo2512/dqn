@@ -16,12 +16,15 @@ All notable changes to this project will be documented in this file.
   - Security: default `--use-iap` on (can disable with `--no-iap`).
 
 ## [0.2.39] - 2025-10-02
-### Feat
-- Strategy upgrades for training:
-  - Increase reward "drawdown_factor" default to 0.2 to penalize deep pullbacks harder.
-  - Add configurable `holding_penalty` to reward to discourage overly long holds.
-  - Expand feature set: Bollinger Bands (lower/middle/upper), MACD + signal, ADX, and volume
-    in `feature_engineering_expand_all()` across configured periods.
+### Changed
+- Increase reward `drawdown_factor` default to `0.2` to make deep pullbacks more punitive.
+- Add configurable `holding_penalty` to discourage overly long holds while in position.
+### Added
+- Feature set expanded in `feature_engineering_expand_all()`:
+  - Bollinger Bands (lower/middle/upper)
+  - MACD and signal
+  - ADX (trend strength)
+  - Volume
 
 ## [0.2.37] - 2025-10-01
 ### Added
