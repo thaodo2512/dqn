@@ -43,6 +43,12 @@ All notable changes to this project will be documented in this file.
   - Remove deprecated `runtime: nvidia` and Swarm-only `deploy.resources.reservations.devices`; keep `gpus: all` at service level.
   - Add a non-failing Torch CUDA availability print during GPU Dockerfile build for diagnostics.
 
+## [0.2.43] - 2025-10-02
+### Fixed
+- GPU x86 Dockerfile base image: switch to a valid CUDA + cuDNN 9 tag
+  (`nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04`) to resolve build failures from
+  the non-existent `12.1.1-cudnn9` tag.
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control
