@@ -126,16 +126,17 @@
         "learning_rate": 0.0001,
         "buffer_size": 100000,
         "learning_starts": 2000,
-        "batch_size": 256,
+        "batch_size": 1024,
         "tau": 1.0,
         "gamma": 0.99,
-        "train_freq": 4,
+        "train_freq": 8,
         "target_update_interval": 2000,
-        "gradient_steps": 1,
+        "gradient_steps": 4,
         "exploration_fraction": 0.2,
         "exploration_final_eps": 0.02,
-        "verbose": 0,
-        "device": "cuda"
+        "verbose": 1,
+        "device": "cuda",
+        "policy_kwargs": {"net_arch": [512, 512]}
       },
       "model_reward_parameters": {
         "rr": 1,

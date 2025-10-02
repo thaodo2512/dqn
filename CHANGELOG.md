@@ -60,6 +60,12 @@ All notable changes to this project will be documented in this file.
 - Print Torch CUDA availability (is_available, device_count, device_name) at the start of
   training inside `scripts/launch_with_all_cores.py` to make GPU usage explicit in logs.
 
+## [0.2.46] - 2025-10-02
+### Changed
+- Tune DQN hyperparams for better GPU utilization on L4:
+  - `batch_size` → 1024, `train_freq` → 8, `gradient_steps` → 4, `verbose` → 1
+  - Add `policy_kwargs: { net_arch: [512, 512] }` to increase model capacity
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control
