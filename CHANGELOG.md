@@ -85,6 +85,13 @@ All notable changes to this project will be documented in this file.
   - PPO essentials: `gae_lambda: 0.95`, `clip_range: 0.2`, `ent_coef: 0.0`, `vf_coef: 0.5`, `max_grad_norm: 0.5`
   - Keep `policy_kwargs.net_arch=[512, 512]`, `device=cuda`, `verbose=1`
 
+## [0.2.50] - 2025-10-02
+### Changed
+- Revert RL model to DQN and increase throughput-oriented hyperparameters:
+  - `batch_size` → 2048, `train_freq` → 16, `target_update_interval` → 5000,
+    `gradient_steps` → 8, `learning_rate` → 7e-4
+  - Keep `policy_kwargs.net_arch=[512, 512]`, `device=cuda`, `verbose=1`.
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control
