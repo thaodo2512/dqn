@@ -32,6 +32,11 @@ All notable changes to this project will be documented in this file.
   - `docker/Dockerfile.gpu.x86` — CUDA 12.1 runtime base with TA-Lib, Freqtrade 2025.6, SB3, and PyTorch CUDA wheels.
   - `docker/docker-compose.train.gpu.x86.yml` — compose stack enabling `gpus: all` with NVIDIA runtime and launching the multi-core training launcher.
 
+## [0.2.41] - 2025-10-02
+### Added
+- Dedicated compose for NVIDIA L4 on x86:
+  - `docker/docker-compose.train.gpu.l4.yml` — aliases the x86 GPU Dockerfile and sets `TORCH_CUDA_ARCH_LIST=8.9` for Ada (L4), with `gpus: all` and NVIDIA runtime.
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control
