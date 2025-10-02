@@ -26,6 +26,12 @@ All notable changes to this project will be documented in this file.
   - ADX (trend strength)
   - Volume
 
+## [0.2.40] - 2025-10-02
+### Added
+- GPU training on x86 (e.g., NVIDIA V100):
+  - `docker/Dockerfile.gpu.x86` — CUDA 12.1 runtime base with TA-Lib, Freqtrade 2025.6, SB3, and PyTorch CUDA wheels.
+  - `docker/docker-compose.train.gpu.x86.yml` — compose stack enabling `gpus: all` with NVIDIA runtime and launching the multi-core training launcher.
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control

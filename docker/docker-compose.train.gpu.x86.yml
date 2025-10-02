@@ -1,0 +1,32 @@
+services:
+  freqai-train-gpu-x86:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.gpu.x86
+    container_name: freqai_dqn_train_gpu_x86
+    runtime: nvidia
+    gpus: all
+    restart: unless-stopped
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      TIMERANGE: ${TIMERANGE:-20240101-20250930}
+      DOWNLOAD_START: ${DOWNLOAD_START:-20231001}
+      PYTHONFAULTHANDLER: "1"
+      PYTHONUNBUFFERED: "1"
+      PYTHONWARNINGS: default
+      MPLBACKEND: Agg
+      # Ensure SB3 uses GPU unless overridden by launcher
+      FREQAI_DEVICE: cuda
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    volumes:
+      - ../user_data:/freqtrade/user_data
+      - ../tools:/freqtrade/tools
+      - ../scripts:/freqtrade/scripts
+    working_dir: /freqtrade
+    command: ["python", "scripts/launch_with_all_cores.py", "--mode", "train"]
+
