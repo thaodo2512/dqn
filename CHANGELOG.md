@@ -71,6 +71,12 @@ All notable changes to this project will be documented in this file.
 - Prevent time-series leakage: set `data_split_parameters.shuffle` to `false` in
   `user_data/config.json` for more realistic RL generalization.
 
+## [0.2.48] - 2025-10-02
+### Changed
+- Increase logging visibility during training:
+  - Set `freqai.log_level` to `DEBUG`.
+  - Enable reward component debug logs via `freqai.rl_config.reward_kwargs.debug_log=true`.
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control

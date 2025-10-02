@@ -86,7 +86,7 @@
     "save_backtest_models": true,
     "restore_best_model": true,
     "use_tensorboard": true,
-    "log_level": "INFO",
+    "log_level": "DEBUG",
     "lookback_period_candles": 96,
     "train_period_days": 30,
     "backtest_period_days": 7,
@@ -120,7 +120,8 @@
         "oi_weight": 0.4,
         "reward_clip": 5.0,
         "max_trade_duration_candles": 300,
-        "holding_penalty": 0.0001
+        "holding_penalty": 0.0001,
+        "debug_log": true
       },
       "hyperparams": {
         "learning_rate": 0.0001,
