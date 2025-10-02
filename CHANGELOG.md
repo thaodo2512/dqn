@@ -37,6 +37,12 @@ All notable changes to this project will be documented in this file.
 - Dedicated compose for NVIDIA L4 on x86:
   - `docker/docker-compose.train.gpu.l4.yml` — aliases the x86 GPU Dockerfile and sets `TORCH_CUDA_ARCH_LIST=8.9` for Ada (L4), with `gpus: all` and NVIDIA runtime.
 
+## [0.2.42] - 2025-10-02
+### Changed
+- GPU compose stacks updated for modern Docker:
+  - Remove deprecated `runtime: nvidia` and Swarm-only `deploy.resources.reservations.devices`; keep `gpus: all` at service level.
+  - Add a non-failing Torch CUDA availability print during GPU Dockerfile build for diagnostics.
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control

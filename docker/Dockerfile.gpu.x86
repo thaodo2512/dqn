@@ -40,6 +40,14 @@ RUN pip install --no-cache-dir \
       --index-url https://download.pytorch.org/whl/cu121 \
       torch torchvision
 
+# Best-effort check: print CUDA availability (does not fail build if False)
+RUN python - <<'PY'
+import torch
+print('[build-check] torch', torch.__version__)
+print('[build-check] cuda available:', torch.cuda.is_available())
+print('[build-check] device count:', torch.cuda.device_count())
+PY
+
 WORKDIR /freqtrade
 RUN freqtrade create-userdir --userdir /freqtrade/user_data || true
 
@@ -51,4 +59,3 @@ COPY scripts /freqtrade/scripts
 EXPOSE 8080
 
 CMD ["python", "scripts/launch_with_all_cores.py", "--mode", "train"]
-
