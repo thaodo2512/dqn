@@ -49,6 +49,12 @@ All notable changes to this project will be documented in this file.
   (`nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04`) to resolve build failures from
   the non-existent `12.1.1-cudnn9` tag.
 
+## [0.2.44] - 2025-10-02
+### Added
+- `scripts/train_one_pair_gpu.sh`: simplified wrapper to run GPU training for a single pair
+  using the L4 compose. Computes `TIMERANGE` as the last N×30 days (default 22) unless an
+  explicit `--timerange` is provided.
+
 ## [0.2.37] - 2025-10-01
 ### Added
 - Downloads: add fine‑grained pair control
